@@ -1,0 +1,91 @@
+
+
+PendingUser.js :
+
+Signup route should follow this logic:
+
+    User enters email + password
+
+    Backend checks if email already exists in users or pending_users
+
+    Backend generates a code (example: 6 digits)
+
+    Insert into pending_users (using PendingUser.create)
+
+    Send code via email
+
+    User enters code
+
+    Backend verifies code → inserts into users table
+
+    Backend deletes from pending_users
+
+PendingUser.js is exactly what enables that flow.
+
+
+User.js 
+
+| Function              | Purpose                           |
+| --------------------- | --------------------------------- |
+| `create(userData)`    | Add a new user                    |
+| `findByEmail(email)`  | Used for login + checks           |
+| `findById(id)`        | Retrieve user profile             |
+| `findByUsername`      | Avoid duplicate usernames         |
+| `update(id, updates)` | Modify profile details            |
+| `updatePassword`      | Securely update only the password |
+
+
+CodeVerification.js
+
+| Function                                | Purpose                                |
+| --------------------------------------- | -------------------------------------- |
+| `create(userId, code, type, expiresAt)` | Generate a verification code           |
+| `findByUserAndCode(userId, code, type)` | Validate code (checks expiry + unused) |
+| `markAsUsed(id)`                        | Prevent code reuse                     |
+| `deleteExpired()`                       | Cleanup old codes                      |
+
+
+
+Vote.js
+
+How it fits in the real use-case flow
+
+    When a user votes:
+
+    Controller calls findByPollAndUser
+
+    If the user already voted → reject
+
+    If poll not ended → continue
+
+    Call create to insert a new vote
+
+    Call getVoteDistribution to update results
+
+    Emit Socket.IO event → update frontend in real-time
+
+
+
+Group.js 
+
+| Fonction     | Description                                        |
+| ------------ | -------------------------------------------------- |
+| `create`     | Ajouter un groupe                                  |
+| `findById`   | Récupérer un groupe précis                         |
+| `findPublic` | Récupérer les groupes publics                      |
+| `findByUser` | Récupérer les groupes créés + rejoints par un user |
+| `update`     | Mettre à jour dynamiquement un groupe              |
+| `delete`     | Supprimer un groupe et gérer les relations         |
+
+
+GroupMember.js
+
+| Fonction             | Rôle                                       |
+| -------------------- | ------------------------------------------ |
+| `addMember`          | Ajouter un membre / créer une demande      |
+| `findByGroupAndUser` | Vérifier l’état d’un membre dans un groupe |
+| `getPendingRequests` | Voir toutes les demandes en attente        |
+| `updateStatus`       | Accepter / refuser / modifier statut       |
+| `removeMember`       | Supprimer un membre du groupe              |
+
+

@@ -1,0 +1,11 @@
+{
+  "/(auth)/login/page": "app/(auth)/login/page.js",
+  "/(auth)/register/page": "app/(auth)/register/page.js",
+  "/(dashboard)/dashboard/groups/[id]/page": "app/(dashboard)/dashboard/groups/[id]/page.js",
+  "/(dashboard)/dashboard/groups/page": "app/(dashboard)/dashboard/groups/page.js",
+  "/(dashboard)/dashboard/help/page": "app/(dashboard)/dashboard/help/page.js",
+  "/(dashboard)/dashboard/my-polls/page": "app/(dashboard)/dashboard/my-polls/page.js",
+  "/(dashboard)/dashboard/page": "app/(dashboard)/dashboard/page.js",
+  "/(dashboard)/dashboard/profile/page": "app/(dashboard)/dashboard/profile/page.js",
+  "/page": "app/page.js"
+}
