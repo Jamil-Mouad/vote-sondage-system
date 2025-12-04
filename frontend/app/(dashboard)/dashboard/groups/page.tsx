@@ -6,26 +6,27 @@ import { Input } from "@/components/ui/input"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { GroupCard } from "@/components/groups/group-card"
 import { CreateGroupModal } from "@/components/groups/create-group-modal"
-import { JoinGroupModal } from "@/components/groups/join-group-modal"
 import { useGroupStore } from "@/store/group-store"
-import { Plus, Search, Users, UserPlus } from "lucide-react"
+import { Plus, Search, Users } from "lucide-react"
 
 export default function GroupsPage() {
   const { groups, myGroups } = useGroupStore()
   const [searchQuery, setSearchQuery] = useState("")
   const [showCreateModal, setShowCreateModal] = useState(false)
-  const [showJoinModal, setShowJoinModal] = useState(false)
 
-  const filteredGroups = groups.filter(
+  const filteredGroups = (groups || []).filter(
     (g) =>
       g.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      g.description.toLowerCase().includes(searchQuery.toLowerCase()),
+      g.description?.toLowerCase().includes(searchQuery.toLowerCase()),
   )
 
-  const filteredMyGroups = myGroups.filter(
+  // Combiner les groupes créés et rejoints
+  const allMyGroups = [...(myGroups?.created || []), ...(myGroups?.joined || [])]
+
+  const filteredMyGroups = allMyGroups.filter(
     (g) =>
       g.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      g.description.toLowerCase().includes(searchQuery.toLowerCase()),
+      g.description?.toLowerCase().includes(searchQuery.toLowerCase()),
   )
 
   return (
@@ -35,16 +36,10 @@ export default function GroupsPage() {
           <h1 className="text-2xl font-bold text-foreground">Groupes</h1>
           <p className="text-muted-foreground">Gérez vos groupes et découvrez-en de nouveaux</p>
         </div>
-        <div className="flex gap-2">
-          <Button variant="outline" onClick={() => setShowJoinModal(true)}>
-            <UserPlus className="mr-2 h-4 w-4" />
-            Rejoindre
-          </Button>
-          <Button onClick={() => setShowCreateModal(true)}>
-            <Plus className="mr-2 h-4 w-4" />
-            Créer un groupe
-          </Button>
-        </div>
+        <Button onClick={() => setShowCreateModal(true)}>
+          <Plus className="mr-2 h-4 w-4" />
+          Créer un groupe
+        </Button>
       </div>
 
       <div className="relative max-w-md">
@@ -74,16 +69,15 @@ export default function GroupsPage() {
             <div className="flex flex-col items-center justify-center rounded-lg border border-dashed p-12 text-center">
               <Users className="h-12 w-12 text-muted-foreground/50" />
               <h3 className="mt-4 text-lg font-medium">Aucun groupe</h3>
-              <p className="mt-2 text-sm text-muted-foreground">Vous n'avez pas encore rejoint de groupe</p>
-              <Button className="mt-4" onClick={() => setShowJoinModal(true)}>
-                <UserPlus className="mr-2 h-4 w-4" />
-                Rejoindre un groupe
-              </Button>
+              <p className="mt-2 text-sm text-muted-foreground">
+                Vous n'avez pas encore rejoint de groupe. Découvrez les groupes publics dans l'onglet "Découvrir" et
+                demandez à les rejoindre !
+              </p>
             </div>
           ) : (
             <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
               {filteredMyGroups.map((group) => (
-                <GroupCard key={group.id} group={group} isMember />
+                <GroupCard key={group.id} group={group} />
               ))}
             </div>
           )}
@@ -107,7 +101,6 @@ export default function GroupsPage() {
       </Tabs>
 
       <CreateGroupModal open={showCreateModal} onOpenChange={setShowCreateModal} />
-      <JoinGroupModal open={showJoinModal} onOpenChange={setShowJoinModal} />
     </div>
   )
 }

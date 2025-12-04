@@ -10,7 +10,7 @@ import { pollsApi } from "@/lib/api"
 import type { Poll } from "@/store/poll-store"
 import { useCountdown } from "@/hooks/use-countdown"
 import { cn } from "@/lib/utils"
-import { ArrowLeft, Clock, Check, Trophy, Users, Loader2, History } from "lucide-react"
+import { ArrowLeft, Clock, Check, Trophy, Users, Loader2, History, BarChart3 } from "lucide-react"
 
 function HistoryPollCard({ poll }: { poll: Poll }) {
   const countdown = useCountdown(poll.endTime)
@@ -79,6 +79,18 @@ function HistoryPollCard({ poll }: { poll: Poll }) {
                 {winningOption.index === poll.myVote && (
                   <Badge className="bg-green-600 text-xs ml-auto">Votre choix !</Badge>
                 )}
+              </div>
+            )}
+
+            {/* Bouton pour voir les statistiques - disponible pour les sondages terminés et les créateurs */}
+            {(isEnded || poll.isCreator) && (
+              <div className="mt-3">
+                <Button asChild variant="outline" size="sm" className="w-full">
+                  <Link href={`/dashboard/my-polls/${poll.id}/stats`}>
+                    <BarChart3 className="h-4 w-4 mr-2" />
+                    Voir les statistiques
+                  </Link>
+                </Button>
               </div>
             )}
           </div>

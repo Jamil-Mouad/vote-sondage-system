@@ -17,6 +17,10 @@ import { toast } from "sonner"
 import { authApi } from "@/lib/api"
 import { User, Mail, Lock, Eye, EyeOff, Loader2, Check, X } from "lucide-react"
 
+const API_MODE = process.env.NEXT_PUBLIC_API_MODE || "mock"
+const USE_REAL_API = API_MODE === "real"
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000/api"
+
 export default function RegisterPage() {
   const router = useRouter()
   const [isLoading, setIsLoading] = useState(false)
@@ -59,6 +63,31 @@ export default function RegisterPage() {
       toast.error(error instanceof Error ? error.message : "Erreur lors de l'inscription")
     } finally {
       setIsLoading(false)
+    }
+  }
+
+  const handleGoogleLogin = async () => {
+    if (USE_REAL_API) {
+      try {
+        // Vérifier d'abord si OAuth est disponible
+        const response = await fetch(API_BASE_URL.replace('/api', '') + '/api/auth/google', {
+          method: 'HEAD',
+          redirect: 'manual'
+        }).catch(() => null);
+
+        // Si la requête échoue ou retourne une erreur, afficher un message
+        if (!response || response.status === 503) {
+          toast.error("Google OAuth n'est pas configuré sur ce serveur. Utilisez l'inscription par email.");
+          return;
+        }
+
+        // Sinon, rediriger vers l'authentification Google
+        window.location.href = API_BASE_URL.replace('/api', '') + '/api/auth/google';
+      } catch (error) {
+        toast.error("Erreur lors de la connexion avec Google. Utilisez l'inscription par email.");
+      }
+    } else {
+      toast.info("OAuth Google non disponible en mode démo")
     }
   }
 
@@ -204,7 +233,7 @@ export default function RegisterPage() {
               type="button"
               variant="outline"
               className="w-full h-12 bg-transparent"
-              onClick={() => toast.info("OAuth Google non disponible en mode démo")}
+              onClick={handleGoogleLogin}
             >
               <svg className="mr-2 h-5 w-5" viewBox="0 0 24 24">
                 <path

@@ -58,7 +58,7 @@
   --secondary: oklch(0.22 0.01 250);
   --secondary-foreground: oklch(0.98 0 0);
   --muted: oklch(0.22 0.01 250);
-  --muted-foreground: oklch(0.65 0 0);
+  --muted-foreground: oklch(0.75 0 0);
   --accent: oklch(0.22 0.01 250);
   --accent-foreground: oklch(0.98 0 0);
   --destructive: oklch(0.5 0.2 27);
@@ -150,4 +150,169 @@
 
 ::-webkit-scrollbar-thumb:hover {
   opacity: 0.8;
+}
+
+/* Amélioration du hover sur les textes muted */
+.text-muted-foreground {
+  transition: color 0.2s ease, opacity 0.2s ease;
+}
+
+.text-muted-foreground:hover {
+  color: var(--foreground) !important;
+  opacity: 1 !important;
+}
+
+/* Amélioration du hover sur les cartes */
+.hover\:shadow-md:hover .text-muted-foreground,
+.hover\:shadow-lg:hover .text-muted-foreground {
+  color: var(--card-foreground);
+  opacity: 1;
+}
+
+/* Hover sur les options de sondage */
+[role="radio"]:hover,
+[role="radio"]:hover * {
+  color: var(--foreground) !important;
+  border-color: var(--primary) !important;
+  transition: all 0.2s ease;
+}
+
+/* Hover sur les barres de graphiques et leurs textes */
+.recharts-bar:hover,
+.recharts-bar:hover + * {
+  opacity: 1 !important;
+  filter: brightness(1.2);
+}
+
+/* Amélioration du texte dans les tooltips de graphiques */
+.recharts-tooltip-item,
+.recharts-default-tooltip {
+  color: var(--foreground) !important;
+  background: var(--card) !important;
+  border: 1px solid var(--border) !important;
+}
+
+/* Amélioration de la lisibilité des liens et boutons */
+a, button {
+  transition: all 0.2s ease;
+}
+
+a:hover, button:hover {
+  opacity: 0.9;
+}
+
+/* Animations globales */
+* {
+  transition: background-color 0.2s ease, border-color 0.2s ease, color 0.2s ease;
+}
+
+/* Animation d'entrée pour les cartes */
+@keyframes slideInUp {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes slideInDown {
+  from {
+    opacity: 0;
+    transform: translateY(-20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes scaleIn {
+  from {
+    opacity: 0;
+    transform: scale(0.95);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+/* Hover effet sur les boutons avec transformation */
+button:not(:disabled) {
+  transition: all 0.2s ease;
+}
+
+button:not(:disabled):hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+}
+
+button:not(:disabled):active {
+  transform: translateY(0);
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.1);
+}
+
+/* Animation sur les badges */
+[class*="badge"] {
+  transition: all 0.2s ease;
+}
+
+/* Effet de pulsation pour les notifications */
+@keyframes pulse {
+  0%, 100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.8;
+  }
+}
+
+.animate-pulse-slow {
+  animation: pulse 3s ease-in-out infinite;
+}
+
+/* Smooth scroll */
+html {
+  scroll-behavior: smooth;
+}
+
+/* Amélioration des input au focus */
+input:focus,
+textarea:focus,
+select:focus {
+  transform: scale(1.01);
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+  transition: all 0.2s ease;
+}
+
+/* Effet hover sur les cartes */
+[class*="Card"]:hover,
+.hover\:shadow-md:hover,
+.hover\:shadow-lg:hover {
+  transform: translateY(-4px);
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.15);
+}
+
+/* Animation des listes */
+[role="listitem"],
+li {
+  animation: fadeIn 0.3s ease-out;
+}
+
+/* Amélioration des transitions pour les tabs */
+[role="tabpanel"] {
+  animation: fadeIn 0.3s ease-out;
 }

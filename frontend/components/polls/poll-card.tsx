@@ -6,6 +6,8 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
+import { LoginRequiredModal } from "@/components/auth/login-required-modal"
+import { useAuthStore } from "@/store/auth-store"
 import { toast } from "sonner"
 import { useCountdown } from "@/hooks/use-countdown"
 import { pollsApi } from "@/lib/api"
@@ -19,8 +21,10 @@ interface PollCardProps {
 }
 
 export function PollCard({ poll, onVote }: PollCardProps) {
+  const { isAuthenticated } = useAuthStore()
   const [isVoting, setIsVoting] = useState(false)
   const [localPoll, setLocalPoll] = useState(poll)
+  const [showLoginModal, setShowLoginModal] = useState(false)
   const countdown = useCountdown(poll.endTime)
 
   const isEnded = poll.status === "ended" || countdown.isExpired
@@ -41,6 +45,12 @@ export function PollCard({ poll, onVote }: PollCardProps) {
   }
 
   const handleVote = async (optionIndex: number) => {
+    // Si non authentifié, afficher la modal de connexion
+    if (!isAuthenticated) {
+      setShowLoginModal(true)
+      return
+    }
+
     if (!canVote) return
 
     setIsVoting(true)
@@ -166,11 +176,11 @@ export function PollCard({ poll, onVote }: PollCardProps) {
                 <div className="relative flex items-center justify-between">
                   <div className="flex items-center gap-2">
                     {!showResults && <div className={cn("h-4 w-4 rounded-full border-2", "border-muted-foreground")} />}
-                    {isWinner && <Trophy className="h-4 w-4 text-green-600" />}
+                    {isWinner && <Trophy className="h-4 w-4 text-green-600 dark:text-green-400" />}
                     {isMyVote && <Check className="h-4 w-4" style={{ color: "var(--primary)" }} />}
-                    <span className="font-medium">{option.text}</span>
+                    <span className="font-medium text-foreground">{option.text}</span>
                   </div>
-                  {showResults && <span className="font-bold text-sm">{option.percentage}%</span>}
+                  {showResults && <span className="font-bold text-sm text-foreground">{option.percentage}%</span>}
                 </div>
               </button>
             )
@@ -191,6 +201,9 @@ export function PollCard({ poll, onVote }: PollCardProps) {
           </Button>
         </div>
       </CardContent>
+
+      {/* Modal de connexion requise */}
+      <LoginRequiredModal open={showLoginModal} onClose={() => setShowLoginModal(false)} />
     </Card>
   )
 }

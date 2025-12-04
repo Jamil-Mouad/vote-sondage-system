@@ -52,7 +52,12 @@ const validateForgotPassword = [
 const validateResetPassword = [
   body('email').isEmail().withMessage('Invalid email address').normalizeEmail(),
   body('code').isLength({ min: 6, max: 6 }).withMessage('Reset code must be 6 digits').isNumeric().withMessage('Reset code must be numeric'),
-  passwordStrength(),
+  body('newPassword')
+    .isLength({ min: 8 }).withMessage('Password must be at least 8 characters long')
+    .matches(/[A-Z]/).withMessage('Password must contain at least one uppercase letter')
+    .matches(/[a-z]/).withMessage('Password must contain at least one lowercase letter')
+    .matches(/[0-9]/).withMessage('Password must contain at least one number')
+    .matches(/[^A-Za-z0-9]/).withMessage('Password must contain at least one special character'),
 ];
 
 const validatePollCreation = [
@@ -84,6 +89,7 @@ const handleValidationErrors = (req, res, next) => {
 };
 
 module.exports = {
+  passwordStrength,
   validateRegistration,
   validateEmailVerification,
   validateLogin,

@@ -24,9 +24,12 @@ export default function ForgotPasswordPage() {
     setIsLoading(true)
 
     try {
-      await authApi.forgotPassword(email)
+      const result = await authApi.forgotPassword(email)
       toast.success("Code de réinitialisation envoyé !")
-      router.push(`/reset-password?email=${encodeURIComponent(email)}`)
+
+      // Récupérer l'expiration du backend si disponible
+      const expiresAt = result.data?.expiresAt ? `&expiresAt=${encodeURIComponent(result.data.expiresAt)}` : ''
+      router.push(`/verify-reset-code?email=${encodeURIComponent(email)}${expiresAt}`)
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "Erreur lors de l'envoi")
     } finally {

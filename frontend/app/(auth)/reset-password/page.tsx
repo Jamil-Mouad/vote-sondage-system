@@ -2,10 +2,9 @@
 
 import type React from "react"
 
-import { useState, Suspense } from "react"
+import { useState, useEffect, Suspense } from "react"
 import { useRouter, useSearchParams } from "next/navigation"
 import { AuthLayout } from "@/components/auth/auth-layout"
-import { CodeInput } from "@/components/auth/code-input"
 import { PasswordStrength } from "@/components/auth/password-strength"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -14,23 +13,32 @@ import { Card, CardContent } from "@/components/ui/card"
 import { toast } from "sonner"
 import { authApi } from "@/lib/api"
 import { useCountdown } from "@/hooks/use-countdown"
-import { Key, Lock, Eye, EyeOff, Loader2 } from "lucide-react"
+import { Lock, Eye, EyeOff, Loader2, Check } from "lucide-react"
 import { cn } from "@/lib/utils"
 
 function ResetPasswordContent() {
   const router = useRouter()
   const searchParams = useSearchParams()
   const email = searchParams.get("email") || ""
+  const code = searchParams.get("code") || ""
+  const expiresAtParam = searchParams.get("expiresAt") || ""
 
-  const [code, setCode] = useState("")
   const [password, setPassword] = useState("")
   const [confirmPassword, setConfirmPassword] = useState("")
   const [showPassword, setShowPassword] = useState(false)
   const [showConfirmPassword, setShowConfirmPassword] = useState(false)
   const [isLoading, setIsLoading] = useState(false)
 
-  const expiresAt = new Date(Date.now() + 10 * 60 * 1000).toISOString()
+  const expiresAt = expiresAtParam || new Date(Date.now() + 10 * 60 * 1000).toISOString()
   const countdown = useCountdown(expiresAt)
+
+  const passwordsMatch = password === confirmPassword && confirmPassword.length > 0
+
+  useEffect(() => {
+    if (!email || !code) {
+      router.push("/forgot-password")
+    }
+  }, [email, code, router])
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -40,8 +48,8 @@ function ResetPasswordContent() {
       return
     }
 
-    if (code.length !== 6) {
-      toast.error("Veuillez entrer le code complet")
+    if (password.length < 8) {
+      toast.error("Le mot de passe doit contenir au moins 8 caractères")
       return
     }
 
@@ -67,32 +75,30 @@ function ResetPasswordContent() {
               className="mx-auto mb-4 w-16 h-16 rounded-full flex items-center justify-center"
               style={{ background: `linear-gradient(135deg, var(--primary-100), var(--primary-50))` }}
             >
-              <Key className="h-8 w-8" style={{ color: "var(--primary)" }} />
+              <Lock className="h-8 w-8" style={{ color: "var(--primary)" }} />
             </div>
-            <h1 className="text-2xl font-bold mb-2">Créez votre nouveau mot de passe</h1>
+            <h1 className="text-2xl font-bold mb-2">Nouveau mot de passe</h1>
             <p className="text-sm text-muted-foreground">
-              Code envoyé à : <span className="font-medium">{email}</span>
+              Créez votre nouveau mot de passe pour <span className="font-medium">{email}</span>
             </p>
-            <p
-              className={cn(
-                "text-sm mt-1",
-                countdown.isExpired
-                  ? "text-red-500"
-                  : countdown.minutes < 2
-                    ? "text-orange-500"
-                    : "text-muted-foreground",
-              )}
-            >
-              Expire dans : <span className="font-mono">{countdown.formatted}</span>
-            </p>
+            {!countdown.isExpired && (
+              <p
+                className={cn(
+                  "text-sm mt-2",
+                  countdown.minutes < 2 ? "text-orange-500" : "text-muted-foreground",
+                )}
+              >
+                Temps restant : <span className="font-mono">{countdown.formatted}</span>
+              </p>
+            )}
+            {countdown.isExpired && (
+              <p className="text-sm mt-2 text-red-500">
+                Le code a expiré. <button onClick={() => router.push("/forgot-password")} className="underline">Demander un nouveau code</button>
+              </p>
+            )}
           </div>
 
           <form onSubmit={handleSubmit} className="space-y-5">
-            <div className="space-y-2">
-              <Label>Code de vérification</Label>
-              <CodeInput value={code} onChange={setCode} disabled={isLoading} />
-            </div>
-
             <div className="space-y-2">
               <Label htmlFor="password">Nouveau mot de passe</Label>
               <div className="relative">
@@ -105,6 +111,7 @@ function ResetPasswordContent() {
                   onChange={(e) => setPassword(e.target.value)}
                   className="pl-10 pr-10"
                   required
+                  disabled={countdown.isExpired}
                 />
                 <button
                   type="button"
@@ -129,6 +136,7 @@ function ResetPasswordContent() {
                   onChange={(e) => setConfirmPassword(e.target.value)}
                   className="pl-10 pr-10"
                   required
+                  disabled={countdown.isExpired}
                 />
                 <button
                   type="button"
@@ -138,6 +146,18 @@ function ResetPasswordContent() {
                   {showConfirmPassword ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
                 </button>
               </div>
+              {confirmPassword && (
+                <p className={`text-xs flex items-center gap-1 ${passwordsMatch ? "text-green-600" : "text-red-500"}`}>
+                  {passwordsMatch ? (
+                    <>
+                      <Check className="h-3 w-3" />
+                      Les mots de passe correspondent
+                    </>
+                  ) : (
+                    "Les mots de passe ne correspondent pas"
+                  )}
+                </p>
+              )}
             </div>
 
             <Button
@@ -146,7 +166,7 @@ function ResetPasswordContent() {
               style={{
                 background: `linear-gradient(135deg, var(--primary), var(--primary-700))`,
               }}
-              disabled={isLoading || countdown.isExpired}
+              disabled={isLoading || countdown.isExpired || !passwordsMatch || password.length < 8}
             >
               {isLoading ? (
                 <>

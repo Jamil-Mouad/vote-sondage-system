@@ -36,20 +36,25 @@ export function Sidebar({ isOpen, onClose }: SidebarProps) {
 
   return (
     <>
-      {/* Overlay for mobile */}
-      {isOpen && <div className="fixed inset-0 bg-black/50 z-40 lg:hidden" onClick={onClose} />}
+      {/* Overlay - visible quand le sidebar est ouvert avec effet de blur */}
+      {isOpen && (
+        <div
+          className="fixed inset-0 bg-black/60 backdrop-blur-sm z-40 animate-in fade-in duration-300"
+          onClick={onClose}
+        />
+      )}
 
-      {/* Sidebar */}
+      {/* Sidebar - toujours en position fixed, flotte au-dessus du contenu */}
       <aside
         className={cn(
-          "fixed inset-y-0 left-0 z-50 w-72 bg-card border-r border-border transform transition-transform duration-300 ease-in-out",
-          "lg:translate-x-0 lg:static lg:z-auto",
+          "fixed inset-y-0 left-0 z-50 w-72 bg-card border-r border-border shadow-2xl",
+          "transform transition-all duration-300 ease-in-out",
           isOpen ? "translate-x-0" : "-translate-x-full",
         )}
       >
         <div className="flex flex-col h-full">
-          {/* Header with close button (mobile) */}
-          <div className="flex items-center justify-between p-4 lg:hidden">
+          {/* Header with close button - visible sur toutes les tailles */}
+          <div className="flex items-center justify-between p-4">
             <div className="flex items-center gap-3" style={{ color: "var(--primary)" }}>
               <BarChart3 className="h-8 w-8" />
               <span className="text-xl font-bold">VotePoll</span>
@@ -99,8 +104,11 @@ export function Sidebar({ isOpen, onClose }: SidebarProps) {
                   href={item.href}
                   onClick={onClose}
                   className={cn(
-                    "flex items-center gap-3 px-4 py-3 rounded-xl transition-all",
-                    isActive ? "text-white font-medium" : "text-muted-foreground hover:bg-muted hover:text-foreground",
+                    "flex items-center gap-3 px-4 py-3 rounded-xl transition-all duration-200",
+                    "hover:scale-105 hover:shadow-md active:scale-95",
+                    isActive
+                      ? "text-white font-medium shadow-lg"
+                      : "text-muted-foreground hover:bg-muted hover:text-foreground",
                   )}
                   style={
                     isActive
@@ -110,7 +118,7 @@ export function Sidebar({ isOpen, onClose }: SidebarProps) {
                       : undefined
                   }
                 >
-                  <item.icon className="h-5 w-5" />
+                  <item.icon className="h-5 w-5 transition-transform group-hover:rotate-12" />
                   <span>{item.label}</span>
                 </Link>
               )

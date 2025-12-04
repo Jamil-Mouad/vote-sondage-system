@@ -24,6 +24,7 @@ function VerifyEmailContent() {
   const [isLoading, setIsLoading] = useState(false)
   const [isResending, setIsResending] = useState(false)
   const [canResend, setCanResend] = useState(false)
+  // 10 minutes expiration
   const [expiresAt, setExpiresAt] = useState(() => new Date(Date.now() + 10 * 60 * 1000).toISOString())
 
   const countdown = useCountdown(expiresAt)
@@ -65,6 +66,7 @@ function VerifyEmailContent() {
     try {
       await authApi.resendCode(email)
       toast.success("Nouveau code envoyé !")
+      // 10 minutes expiration
       setExpiresAt(new Date(Date.now() + 10 * 60 * 1000).toISOString())
       setCanResend(false)
       setCode("")

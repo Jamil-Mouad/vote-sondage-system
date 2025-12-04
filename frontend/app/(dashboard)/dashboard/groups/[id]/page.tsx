@@ -10,6 +10,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { PollCard } from "@/components/polls/poll-card"
 import { CreatePollModal } from "@/components/polls/create-poll-modal"
 import { InviteMemberModal } from "@/components/groups/invite-member-modal"
+import { PendingRequestsCard } from "@/components/groups/pending-requests-card"
 import { useGroupStore } from "@/store/group-store"
 import { usePollStore } from "@/store/poll-store"
 import { ArrowLeft, Users, BarChart3, Plus, Settings, UserPlus, Crown, Shield, Copy, Check } from "lucide-react"
@@ -25,6 +26,19 @@ export default function GroupDetailPage({ params }: { params: Promise<{ id: stri
 
   const group = groups.find((g) => g.id === resolvedParams.id)
   const groupPolls = polls.filter((p) => p.groupId === resolvedParams.id)
+
+  // Mock des demandes en attente (à remplacer par un vrai appel API)
+  const pendingRequests = group?.myRole === "admin" && group?.pendingRequests
+    ? Array.from({ length: group.pendingRequests }, (_, i) => ({
+        id: i + 1,
+        user: {
+          id: 100 + i,
+          username: `user${i + 1}`,
+          email: `user${i + 1}@example.com`,
+        },
+        createdAt: new Date().toISOString(),
+      }))
+    : []
 
   if (!group) {
     return (
@@ -117,29 +131,62 @@ export default function GroupDetailPage({ params }: { params: Promise<{ id: stri
             </div>
 
             <div className="flex gap-2">
-              <Button className="flex-1" onClick={() => setShowInvite(true)}>
-                <UserPlus className="mr-2 h-4 w-4" />
-                Inviter
-              </Button>
-              <Button variant="outline" size="icon">
-                <Settings className="h-4 w-4" />
-              </Button>
+              {group.membershipStatus === "none" ? (
+                // Non membre - bouton pour demander à rejoindre
+                <Button className="flex-1" onClick={() => alert("Demande envoyée à l'admin !")}>
+                  <UserPlus className="mr-2 h-4 w-4" />
+                  Demander à rejoindre
+                </Button>
+              ) : group.membershipStatus === "pending" ? (
+                // Demande en attente
+                <Button className="flex-1" disabled>
+                  <UserPlus className="mr-2 h-4 w-4" />
+                  Demande en attente...
+                </Button>
+              ) : (
+                // Membre approuvé - boutons d'admin
+                <>
+                  <Button className="flex-1" onClick={() => setShowInvite(true)}>
+                    <UserPlus className="mr-2 h-4 w-4" />
+                    Inviter
+                  </Button>
+                  {group.myRole === "admin" && (
+                    <Button variant="outline" size="icon">
+                      <Settings className="h-4 w-4" />
+                    </Button>
+                  )}
+                </>
+              )}
             </div>
           </CardContent>
         </Card>
 
         {/* Contenu principal */}
-        <div className="flex-1">
+        <div className="flex-1 space-y-6">
+          {/* Section des demandes en attente pour les admins */}
+          {group.myRole === "admin" && pendingRequests.length > 0 && (
+            <PendingRequestsCard
+              groupId={group.id}
+              requests={pendingRequests}
+              onUpdate={() => {
+                // Recharger les données du groupe
+                console.log("Mise à jour des demandes")
+              }}
+            />
+          )}
+
           <Tabs defaultValue="polls">
             <div className="flex items-center justify-between">
               <TabsList>
                 <TabsTrigger value="polls">Sondages</TabsTrigger>
                 <TabsTrigger value="members">Membres</TabsTrigger>
               </TabsList>
-              <Button size="sm" onClick={() => setShowCreatePoll(true)}>
-                <Plus className="mr-2 h-4 w-4" />
-                Nouveau sondage
-              </Button>
+              {group.membershipStatus === "approved" && (
+                <Button size="sm" onClick={() => setShowCreatePoll(true)}>
+                  <Plus className="mr-2 h-4 w-4" />
+                  Nouveau sondage
+                </Button>
+              )}
             </div>
 
             <TabsContent value="polls" className="mt-6">
@@ -148,11 +195,17 @@ export default function GroupDetailPage({ params }: { params: Promise<{ id: stri
                   <CardContent className="flex flex-col items-center justify-center py-12">
                     <BarChart3 className="h-12 w-12 text-muted-foreground/50" />
                     <h3 className="mt-4 font-medium">Aucun sondage</h3>
-                    <p className="mt-2 text-sm text-muted-foreground">Ce groupe n'a pas encore de sondage</p>
-                    <Button className="mt-4" onClick={() => setShowCreatePoll(true)}>
-                      <Plus className="mr-2 h-4 w-4" />
-                      Créer un sondage
-                    </Button>
+                    <p className="mt-2 text-sm text-muted-foreground">
+                      {group.membershipStatus === "approved"
+                        ? "Ce groupe n'a pas encore de sondage"
+                        : "Ce groupe n'a pas encore de sondage. Rejoignez-le pour participer !"}
+                    </p>
+                    {group.membershipStatus === "approved" && (
+                      <Button className="mt-4" onClick={() => setShowCreatePoll(true)}>
+                        <Plus className="mr-2 h-4 w-4" />
+                        Créer un sondage
+                      </Button>
+                    )}
                   </CardContent>
                 </Card>
               ) : (

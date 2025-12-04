@@ -254,7 +254,7 @@ export default function ProfilePage() {
               <div>
                 <p className="mb-3 font-medium">Couleur d'accent</p>
                 <p className="mb-4 text-sm text-muted-foreground">Choisissez la couleur principale de l'interface</p>
-                <ColorPicker value={accentColor} onChange={setAccentColor} />
+                <ColorPicker />
               </div>
             </CardContent>
           </Card>

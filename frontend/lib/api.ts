@@ -1,7 +1,12 @@
 import { mockPolls, mockGroups, mockUsers } from "./mock-data"
+import { realAuthApi } from "./api-client"
 import type { User } from "@/store/auth-store"
 import type { Poll } from "@/store/poll-store"
 import type { Group } from "@/store/group-store"
+
+// Mode API: "mock" ou "real"
+const API_MODE = process.env.NEXT_PUBLIC_API_MODE || "mock"
+const USE_REAL_API = API_MODE === "real"
 
 // Simulate API delay
 const delay = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms))
@@ -12,8 +17,8 @@ const groups = [...mockGroups]
 let pendingUsers: { email: string; username: string; password: string; code: string; expiresAt: Date }[] = []
 const users = [...mockUsers]
 
-// Auth API
-export const authApi = {
+// Mock Auth API
+const mockAuthApi = {
   async register(data: { username: string; email: string; password: string }) {
     await delay(800)
 
@@ -134,6 +139,9 @@ export const authApi = {
     throw new Error("Utilisateur non trouvé")
   },
 }
+
+// Export authApi selon le mode
+export const authApi = USE_REAL_API ? realAuthApi : mockAuthApi
 
 // Polls API
 export const pollsApi = {
@@ -296,6 +304,46 @@ export const groupsApi = {
   async getGroupPolls(groupId: number) {
     await delay(300)
     return polls.filter((p) => p.groupId === groupId)
+  },
+
+  async approveMemberRequest(groupId: number, userId: number) {
+    await delay(300)
+    const group = groups.find((g) => g.id === groupId)
+    if (!group) throw new Error("Groupe non trouvé")
+    if (group.pendingRequests && group.pendingRequests > 0) {
+      group.pendingRequests -= 1
+      group.membersCount += 1
+    }
+    return { success: true }
+  },
+
+  async rejectMemberRequest(groupId: number, userId: number) {
+    await delay(300)
+    const group = groups.find((g) => g.id === groupId)
+    if (!group) throw new Error("Groupe non trouvé")
+    if (group.pendingRequests && group.pendingRequests > 0) {
+      group.pendingRequests -= 1
+    }
+    return { success: true }
+  },
+
+  async getPendingRequests(groupId: number) {
+    await delay(300)
+    const group = groups.find((g) => g.id === groupId)
+    if (!group) throw new Error("Groupe non trouvé")
+    // Retourner des demandes mockées pour la démo
+    if (group.myRole === "admin" && group.pendingRequests) {
+      return Array.from({ length: group.pendingRequests }, (_, i) => ({
+        id: i + 1,
+        user: {
+          id: 100 + i,
+          username: `user${i + 1}`,
+          email: `user${i + 1}@example.com`,
+        },
+        createdAt: new Date().toISOString(),
+      }))
+    }
+    return []
   },
 }
 

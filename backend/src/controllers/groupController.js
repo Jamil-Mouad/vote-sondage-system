@@ -183,7 +183,7 @@ const handleJoinRequest = async (req, res) => {
       await GroupMember.removeMember(id, targetMember.user_id); // Remove the pending member
       success(res, null, 'Group join request rejected.');
     } else {
-      return error(res, 'Invalid action. Must be 'approve' or 'reject'.', 400, 'INVALID_ACTION');
+      return error(res, "Invalid action. Must be 'approve' or 'reject'.", 400, 'INVALID_ACTION');
     }
 
   } catch (err) {

@@ -1,4 +1,4 @@
-const pool = require('../config/database');
+const { pool } = require('../config/database');
 
 const Poll = {
   create: async (pollData) => {
@@ -16,10 +16,10 @@ const Poll = {
   },
 
   findPublic: async (filters, pagination) => {
-    let query = 'SELECT p.*, COUNT(v.id) as totalVotes, (
-      SELECT GROUP_CONCAT(CONCAT_WS(':', v2.option_selected, COUNT(v2.id))) 
+    let query = `SELECT p.*, u.username as created_by_username, u.avatar_url as created_by_avatar, COUNT(v.id) as totalVotes, (
+      SELECT GROUP_CONCAT(CONCAT_WS(':', v2.option_selected, COUNT(v2.id)))
       FROM votes v2 WHERE v2.poll_id = p.id GROUP BY v2.option_selected
-    ) as voteDistribution FROM polls p LEFT JOIN votes v ON p.id = v.poll_id WHERE p.is_public = 1';
+    ) as voteDistribution FROM polls p LEFT JOIN votes v ON p.id = v.poll_id LEFT JOIN users u ON p.created_by = u.id WHERE p.is_public = 1`;
     const params = [];
 
     if (filters.status && filters.status !== 'all') {
@@ -85,7 +85,8 @@ const Poll = {
 
   findActivePollsEndingSoon: async () => {
     const [rows] = await pool.execute(
-      'SELECT id, question FROM polls WHERE status = \'active\' AND end_time <= NOW()';
+      'SELECT id, question FROM polls WHERE status = ? AND end_time <= NOW()',
+      ['active']
     );
     return rows;
   },

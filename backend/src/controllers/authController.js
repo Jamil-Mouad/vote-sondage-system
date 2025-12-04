@@ -11,16 +11,48 @@ const register = async (req, res) => {
   try {
     const { username, email, password } = req.body;
 
+    // Vérifier si l'email existe déjà dans pending_users
+    const existingPendingUser = await PendingUser.findByEmail(email);
+    if (existingPendingUser) {
+      // Supprimer l'ancien pending user pour permettre une nouvelle inscription
+      await PendingUser.deleteByEmail(email);
+      console.log(`Ancien pending user supprimé pour l'email: ${email}`);
+    }
+
+    // Vérifier si un utilisateur avec ce username existe déjà dans pending_users
+    const existingPendingUsername = await PendingUser.findByUsername(username);
+    if (existingPendingUsername && existingPendingUsername.email !== email) {
+      // Si le username existe pour un autre email, le supprimer aussi
+      await PendingUser.deleteByUsername(username);
+      console.log(`Ancien pending user supprimé pour le username: ${username}`);
+    }
+
     // Password already hashed in validator for simplicity, or here if not in validator
     const hashedPassword = await hashPassword(password);
     const verificationCode = generateCode();
-    const codeExpiresAt = new Date(Date.now() + 10 * 60 * 1000); // 10 minutes from now
+    // Code expire dans 10 minutes
+    const expirationMinutes = 10;
+    const codeExpiresAt = new Date(Date.now() + expirationMinutes * 60 * 1000);
 
-    await PendingUser.create({ username, email, password: hashedPassword }, verificationCode, codeExpiresAt);
+    // Format date for MySQL
+    const formattedExpiresAt = codeExpiresAt.toISOString().slice(0, 19).replace('T', ' ');
+
+    // Debug logs
+    console.log('Registration debug:', {
+      nodeEnv: process.env.NODE_ENV,
+      expirationMinutes,
+      now: new Date(),
+      codeExpiresAt,
+      formattedExpiresAt,
+      timeUntilExpiry: expirationMinutes + ' minutes',
+    });
+
+    await PendingUser.create({ username, email, password: hashedPassword }, verificationCode, formattedExpiresAt);
     await sendVerificationCode(email, verificationCode, username);
 
     success(res, null, 'Registration successful. Please check your email for verification code.', 201);
   } catch (err) {
+    console.error('Registration error:', err);
     error(res, err.message, 500, 'REGISTRATION_FAILED');
   }
 };
@@ -30,6 +62,20 @@ const verifyEmail = async (req, res) => {
     const { email, code } = req.body;
 
     const pendingUser = await PendingUser.findByEmail(email);
+
+    // Debug logs
+    console.log('Verification attempt:', {
+      email,
+      receivedCode: code,
+      receivedCodeType: typeof code,
+      storedCode: pendingUser?.verification_code,
+      storedCodeType: typeof pendingUser?.verification_code,
+      expiresAt: pendingUser?.code_expires_at,
+      now: new Date(),
+      isExpired: pendingUser ? new Date(pendingUser.code_expires_at) < new Date() : 'no user',
+      codesMatch: pendingUser ? pendingUser.verification_code === code : 'no user',
+    });
+
     if (!pendingUser || pendingUser.verification_code !== code || new Date(pendingUser.code_expires_at) < new Date()) {
       return error(res, 'Invalid or expired verification code.', 400, 'INVALID_CODE');
     }
@@ -39,7 +85,9 @@ const verifyEmail = async (req, res) => {
       username: pendingUser.username,
       email: pendingUser.email,
       password: pendingUser.password,
-      // Add other default fields like firstName, lastName, avatarUrl if needed
+      firstName: null,
+      lastName: null,
+      avatarUrl: null,
     });
 
     // Delete from pending users
@@ -64,13 +112,19 @@ const resendVerificationCode = async (req, res) => {
     }
 
     const newCode = generateCode();
-    const newCodeExpiresAt = new Date(Date.now() + 10 * 60 * 1000); // 10 minutes from now
+    // Code expire dans 10 minutes
+    const expirationMinutes = 10;
+    const newCodeExpiresAt = new Date(Date.now() + expirationMinutes * 60 * 1000);
+    const formattedExpiresAt = newCodeExpiresAt.toISOString().slice(0, 19).replace('T', ' ');
 
-    await PendingUser.update(pendingUser.id, { verification_code: newCode, code_expires_at: newCodeExpiresAt }); // Assuming update function exists in PendingUser model
+    // Delete old pending user and create new one with updated code
+    await PendingUser.deleteByEmail(email);
+    await PendingUser.create({ username: pendingUser.username, email: pendingUser.email, password: pendingUser.password }, newCode, formattedExpiresAt);
     await sendVerificationCode(email, newCode, pendingUser.username);
 
     success(res, null, 'New verification code sent to your email.');
   } catch (err) {
+    console.error('Resend code error:', err);
     error(res, err.message, 500, 'RESEND_CODE_FAILED');
   }
 };
@@ -144,14 +198,24 @@ const forgotPassword = async (req, res) => {
       return error(res, 'User with this email not found.', 404, 'USER_NOT_FOUND');
     }
 
-    const resetCode = generateCode();
-    const codeExpiresAt = new Date(Date.now() + 10 * 60 * 1000); // 10 minutes from now
+    // Vérifier si l'utilisateur utilise OAuth (mot de passe = 'oauth_password')
+    if (user.password === 'oauth_password') {
+      return error(res, 'Vous êtes connecté via Google OAuth. Veuillez utiliser "Connexion avec Google" au lieu de réinitialiser votre mot de passe.', 400, 'OAUTH_USER');
+    }
 
-    await CodeVerification.create(user.id, resetCode, 'password_reset', codeExpiresAt);
+    const resetCode = generateCode();
+    // Code expire dans 10 minutes
+    const expirationMinutes = 10;
+    const codeExpiresAt = new Date(Date.now() + expirationMinutes * 60 * 1000);
+    const formattedExpiresAt = codeExpiresAt.toISOString().slice(0, 19).replace('T', ' ');
+
+    await CodeVerification.create(user.id, resetCode, 'password_reset', formattedExpiresAt);
     await sendPasswordResetCode(email, resetCode, user.username);
 
-    success(res, null, 'Password reset code sent to your email.');
+    // Retourner l'expiration pour que le frontend puisse synchroniser le timer
+    success(res, { expiresAt: codeExpiresAt.toISOString() }, 'Password reset code sent to your email.');
   } catch (err) {
+    console.error('Forgot password error:', err);
     error(res, err.message, 500, 'FORGOT_PASSWORD_FAILED');
   }
 };

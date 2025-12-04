@@ -15,8 +15,18 @@ const PendingUser = {
     return rows[0];
   },
 
+  findByUsername: async (username) => {
+    const [rows] = await pool.execute('SELECT * FROM pending_users WHERE username = ?', [username]);
+    return rows[0];
+  },
+
   deleteByEmail: async (email) => {
     const [result] = await pool.execute('DELETE FROM pending_users WHERE email = ?', [email]);
+    return result.affectedRows;
+  },
+
+  deleteByUsername: async (username) => {
+    const [result] = await pool.execute('DELETE FROM pending_users WHERE username = ?', [username]);
     return result.affectedRows;
   },
 

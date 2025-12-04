@@ -862,8 +862,6 @@ if (typeof globalThis.$RefreshHelpers$ === 'object' && globalThis.$RefreshHelper
 "use strict";
 
 __turbopack_context__.s([
-    "authApi",
-    ()=>authApi,
     "groupsApi",
     ()=>groupsApi,
     "pollsApi",
@@ -871,8 +869,12 @@ __turbopack_context__.s([
     "supportApi",
     ()=>supportApi
 ]);
+var __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f2e$pnpm$2f$next$40$16$2e$0$2e$3_react$2d$dom$40$19$2e$2$2e$0_react$40$19$2e$2$2e$0_$5f$react$40$19$2e$2$2e$0$2f$node_modules$2f$next$2f$dist$2f$build$2f$polyfills$2f$process$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__ = /*#__PURE__*/ __turbopack_context__.i("[project]/node_modules/.pnpm/next@16.0.3_react-dom@19.2.0_react@19.2.0__react@19.2.0/node_modules/next/dist/build/polyfills/process.js [app-client] (ecmascript)");
 var __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$mock$2d$data$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__ = __turbopack_context__.i("[project]/lib/mock-data.ts [app-client] (ecmascript)");
 ;
+// Mode API: "mock" ou "real"
+const API_MODE = ("TURBOPACK compile-time value", "real") || "mock";
+const USE_REAL_API = API_MODE === "real";
 // Simulate API delay
 const delay = (ms)=>new Promise((resolve)=>setTimeout(resolve, ms));
 // In-memory storage for demo
@@ -886,7 +888,8 @@ let pendingUsers = [];
 const users = [
     ...__TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$mock$2d$data$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__["mockUsers"]
 ];
-const authApi = {
+// Mock Auth API
+const mockAuthApi = {
     async register (data) {
         await delay(800);
         if (users.find((u)=>u.email === data.email)) {
@@ -1138,6 +1141,49 @@ const groupsApi = {
     async getGroupPolls (groupId) {
         await delay(300);
         return polls.filter((p)=>p.groupId === groupId);
+    },
+    async approveMemberRequest (groupId, userId) {
+        await delay(300);
+        const group = groups.find((g)=>g.id === groupId);
+        if (!group) throw new Error("Groupe non trouvé");
+        if (group.pendingRequests && group.pendingRequests > 0) {
+            group.pendingRequests -= 1;
+            group.membersCount += 1;
+        }
+        return {
+            success: true
+        };
+    },
+    async rejectMemberRequest (groupId, userId) {
+        await delay(300);
+        const group = groups.find((g)=>g.id === groupId);
+        if (!group) throw new Error("Groupe non trouvé");
+        if (group.pendingRequests && group.pendingRequests > 0) {
+            group.pendingRequests -= 1;
+        }
+        return {
+            success: true
+        };
+    },
+    async getPendingRequests (groupId) {
+        await delay(300);
+        const group = groups.find((g)=>g.id === groupId);
+        if (!group) throw new Error("Groupe non trouvé");
+        // Retourner des demandes mockées pour la démo
+        if (group.myRole === "admin" && group.pendingRequests) {
+            return Array.from({
+                length: group.pendingRequests
+            }, (_, i)=>({
+                    id: i + 1,
+                    user: {
+                        id: 100 + i,
+                        username: `user${i + 1}`,
+                        email: `user${i + 1}@example.com`
+                    },
+                    createdAt: new Date().toISOString()
+                }));
+        }
+        return [];
     }
 };
 const supportApi = {
