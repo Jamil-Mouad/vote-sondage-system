@@ -85,7 +85,7 @@ const Poll = {
 
   findActivePollsEndingSoon: async () => {
     const [rows] = await pool.execute(
-      'SELECT id, question FROM polls WHERE status = ? AND end_time <= NOW()',
+      'SELECT id, question FROM polls WHERE status = ? AND end_time <= UTC_TIMESTAMP()',
       ['active']
     );
     return rows;

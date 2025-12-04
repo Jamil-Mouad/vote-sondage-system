@@ -31,7 +31,7 @@ const PendingUser = {
   },
 
   deleteExpired: async () => {
-    const [result] = await pool.execute('DELETE FROM pending_users WHERE code_expires_at < NOW()');
+    const [result] = await pool.execute('DELETE FROM pending_users WHERE code_expires_at < UTC_TIMESTAMP()');
     return result.affectedRows;
   },
 };
