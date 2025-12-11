@@ -1,3 +1,0 @@
-{
-  "/(auth)/verify-reset-code/page": "app/(auth)/verify-reset-code/page.js"
-}
