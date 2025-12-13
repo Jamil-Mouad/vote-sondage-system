@@ -23,7 +23,7 @@ const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000/a
 
 export default function LoginPage() {
   const router = useRouter()
-  const { login } = useAuthStore()
+  const { setUser } = useAuthStore()
   const [isLoading, setIsLoading] = useState(false)
   const [showPassword, setShowPassword] = useState(false)
   const [formData, setFormData] = useState({
@@ -41,7 +41,18 @@ export default function LoginPage() {
         email: formData.email,
         password: formData.password,
       })
-      login(result.user, result.accessToken)
+      
+      // Set user and token in store
+      useAuthStore.setState({
+        user: {
+          id: result.user.id.toString(),
+          name: result.user.username,
+          email: result.user.email,
+        },
+        token: result.accessToken,
+        isAuthenticated: true,
+      })
+      
       toast.success("Connexion réussie !")
       router.push("/dashboard")
     } catch (error) {

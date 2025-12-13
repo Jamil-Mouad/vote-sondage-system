@@ -9,7 +9,6 @@ import { toast } from "sonner"
 function AuthCallbackContent() {
   const router = useRouter()
   const searchParams = useSearchParams()
-  const { login } = useAuthStore()
 
   useEffect(() => {
     const handleCallback = async () => {
@@ -43,17 +42,16 @@ function AuthCallbackContent() {
           localStorage.setItem("userId", payload.id.toString())
         }
 
-        // Créer l'objet utilisateur
-        const user = {
-          id: payload.id,
-          username: payload.username,
-          email: payload.email,
-          role: payload.role || "user",
-          createdAt: new Date().toISOString(),
-        }
-
         // Connecter l'utilisateur dans le store
-        login(user, accessToken)
+        useAuthStore.setState({
+          user: {
+            id: payload.id.toString(),
+            name: payload.username,
+            email: payload.email,
+          },
+          token: accessToken,
+          isAuthenticated: true,
+        })
 
         toast.success("Connexion avec Google réussie !")
         router.push("/dashboard")
@@ -65,7 +63,7 @@ function AuthCallbackContent() {
     }
 
     handleCallback()
-  }, [searchParams, router, login])
+  }, [searchParams, router])
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-primary/5 via-background to-primary/5">

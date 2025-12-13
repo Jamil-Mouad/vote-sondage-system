@@ -18,7 +18,6 @@ function VerifyEmailContent() {
   const router = useRouter()
   const searchParams = useSearchParams()
   const email = searchParams.get("email") || ""
-  const { login } = useAuthStore()
 
   const [code, setCode] = useState("")
   const [isLoading, setIsLoading] = useState(false)
@@ -50,7 +49,18 @@ function VerifyEmailContent() {
 
     try {
       const result = await authApi.verifyEmail({ email, code })
-      login(result.user, result.accessToken)
+      
+      // Set user and token in store
+      useAuthStore.setState({
+        user: {
+          id: result.user.id.toString(),
+          name: result.user.username,
+          email: result.user.email,
+        },
+        token: result.accessToken,
+        isAuthenticated: true,
+      })
+      
       toast.success("Email vérifié avec succès !")
       router.push("/dashboard")
     } catch (error) {

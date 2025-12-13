@@ -30,7 +30,10 @@ const io = initSocketServer(server);
 setIoInstance(io); // Make io instance available to other services
 
 // Security Middlewares
-app.use(helmet());
+app.use(helmet({
+  crossOriginResourcePolicy: { policy: "cross-origin" },
+  crossOriginEmbedderPolicy: false,
+}));
 app.use(cors({
   origin: process.env.FRONTEND_URL || 'http://localhost:3000',
   credentials: true,
@@ -39,6 +42,14 @@ app.use(cors({
 // Standard Middlewares
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
+
+// Serve static files for avatars (before other routes, with CORS headers)
+const path = require('path');
+app.use('/uploads', (req, res, next) => {
+  res.setHeader('Cross-Origin-Resource-Policy', 'cross-origin');
+  res.setHeader('Access-Control-Allow-Origin', '*');
+  next();
+}, express.static(path.join(__dirname, '../uploads')));
 
 // Passport Middleware for OAuth
 app.use(passport.initialize());
@@ -54,9 +65,6 @@ app.use('/api/polls', pollRoutes);
 app.use('/api/votes', voteRoutes);
 app.use('/api/groups', groupRoutes);
 app.use('/api/support', supportRoutes);
-
-// Serve static files for avatars
-app.use('/uploads/avatars', express.static('src/uploads/avatars'));
 
 // Health Check Route
 app.get('/api/health', (req, res) => {

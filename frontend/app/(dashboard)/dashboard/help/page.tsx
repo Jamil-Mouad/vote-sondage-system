@@ -185,7 +185,7 @@ export default function HelpPage() {
                 </div>
                 <div>
                   <p className="text-sm font-medium">Email</p>
-                  <p className="text-sm text-muted-foreground">support@votepoll.app</p>
+                  <p className="text-sm text-muted-foreground">bakkalifirdaousai@gmail.com</p>
                 </div>
               </div>
               <div className="flex items-center gap-3">
@@ -194,7 +194,7 @@ export default function HelpPage() {
                 </div>
                 <div>
                   <p className="text-sm font-medium">Téléphone</p>
-                  <p className="text-sm text-muted-foreground">+33 1 23 45 67 89</p>
+                  <p className="text-sm text-muted-foreground">+212 6 93 31 32 50</p>
                 </div>
               </div>
             </CardContent>

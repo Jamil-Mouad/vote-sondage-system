@@ -172,9 +172,12 @@ export function Header({ onMenuClick }: HeaderProps) {
             <DropdownMenuTrigger asChild>
               <Button variant="ghost" size="icon" className="rounded-full">
                 <Avatar className="h-8 w-8">
-                  <AvatarImage src={user?.avatarUrl || "/man.jpg"} alt={user?.username} />
+                  <AvatarImage 
+                    src={user?.avatar ? `${process.env.NEXT_PUBLIC_API_URL?.replace('/api', '') || 'http://localhost:5000'}${user.avatar}` : undefined} 
+                    alt={user?.name} 
+                  />
                   <AvatarFallback style={{ background: "var(--primary)", color: "white" }}>
-                    {user?.username?.slice(0, 2).toUpperCase() || "U"}
+                    {user?.name?.slice(0, 2).toUpperCase() || "U"}
                   </AvatarFallback>
                 </Avatar>
               </Button>
@@ -182,7 +185,7 @@ export function Header({ onMenuClick }: HeaderProps) {
             <DropdownMenuContent align="end" className="w-56">
               <DropdownMenuLabel>
                 <div className="flex flex-col">
-                  <span>{user?.username}</span>
+                  <span>{user?.name}</span>
                   <span className="text-xs text-muted-foreground font-normal">{user?.email}</span>
                 </div>
               </DropdownMenuLabel>

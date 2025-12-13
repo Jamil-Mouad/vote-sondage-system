@@ -34,6 +34,9 @@ const User = {
         values.push(updates[key]);
       }
     }
+    if (fields.length === 0) {
+      return 0;
+    }
     values.push(id);
     const [result] = await pool.execute(
       `UPDATE users SET ${fields.join(', ')} WHERE id = ?`,
@@ -46,6 +49,14 @@ const User = {
     const [result] = await pool.execute(
       'UPDATE users SET password = ? WHERE id = ?',
       [hashedPassword, id]
+    );
+    return result.affectedRows;
+  },
+
+  delete: async (id) => {
+    const [result] = await pool.execute(
+      'DELETE FROM users WHERE id = ?',
+      [id]
     );
     return result.affectedRows;
   },

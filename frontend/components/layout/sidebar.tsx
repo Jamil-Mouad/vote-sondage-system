@@ -72,18 +72,18 @@ export function Sidebar({ isOpen, onClose }: SidebarProps) {
                 style={{ ringColor: "var(--primary)" }}
               >
                 <AvatarImage
-                  src={user?.avatarUrl || "/placeholder.svg?height=48&width=48&query=avatar"}
-                  alt={user?.username}
+                  src={user?.avatar ? `${process.env.NEXT_PUBLIC_API_URL?.replace('/api', '') || 'http://localhost:5000'}${user.avatar}` : undefined}
+                  alt={user?.name}
                 />
                 <AvatarFallback style={{ background: "var(--primary)", color: "white" }}>
-                  {user?.username?.slice(0, 2).toUpperCase() || "U"}
+                  {user?.name?.slice(0, 2).toUpperCase() || "U"}
                 </AvatarFallback>
               </Avatar>
               <div className="flex-1 min-w-0">
                 <p className="font-semibold truncate">
                   {user?.firstName && user?.lastName
                     ? `${user.firstName} ${user.lastName}`
-                    : user?.username || "Utilisateur"}
+                    : user?.name || "Utilisateur"}
                 </p>
                 <p className="text-sm text-muted-foreground truncate">{user?.email}</p>
               </div>
