@@ -6,22 +6,28 @@ const SUPPORT_EMAIL = process.env.SUPPORT_EMAIL;
 
 const sendMessage = async (req, res) => {
   try {
-    const { message } = req.body;
-    const userId = req.user.id; // User is authenticated
-    const userEmail = req.user.email; // Assuming user email is available in req.user
+    const { subject, message } = req.body;
+    const userId = req.user.id;
+    const userEmail = req.user.email;
+    const userName = req.user.name || req.user.firstName || 'Utilisateur';
 
     if (!message) {
-      return error(res, 'Support message cannot be empty.', 400, 'EMPTY_MESSAGE');
+      return error(res, 'Le message ne peut pas être vide.', 400, 'EMPTY_MESSAGE');
     }
 
-    // In a real application, you would save this message to a database
-    // For now, we just send an email to the support team
-    const userDetails = `User ID: ${userId}, Email: ${userEmail}`;
-    const fullMessage = `From: ${userDetails}\nMessage: ${message}`;
+    if (!subject) {
+      return error(res, 'Le sujet ne peut pas être vide.', 400, 'EMPTY_SUBJECT');
+    }
 
-    await sendSupportNotification(SUPPORT_EMAIL, fullMessage);
+    await sendSupportNotification(SUPPORT_EMAIL, {
+      subject,
+      message,
+      userId,
+      userEmail,
+      userName
+    });
 
-    success(res, null, 'Your support message has been sent.');
+    success(res, null, 'Votre message a été envoyé avec succès.');
   } catch (err) {
     error(res, err.message, 500, 'SEND_SUPPORT_MESSAGE_FAILED');
   }

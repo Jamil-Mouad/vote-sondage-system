@@ -9,7 +9,9 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion"
-import { HelpCircle, MessageCircle, Book, Mail, Phone, Search } from "lucide-react"
+import { HelpCircle, MessageCircle, Book, Mail, Phone, Search, Loader2, CheckCircle } from "lucide-react"
+import { toast } from "sonner"
+import { apiRequest } from "@/lib/api-client"
 
 const faqs = [
   {
@@ -46,6 +48,7 @@ const faqs = [
 
 export default function HelpPage() {
   const [searchQuery, setSearchQuery] = useState("")
+  const [isSubmitting, setIsSubmitting] = useState(false)
   const [contactForm, setContactForm] = useState({
     subject: "",
     message: "",
@@ -57,10 +60,37 @@ export default function HelpPage() {
       faq.answer.toLowerCase().includes(searchQuery.toLowerCase()),
   )
 
-  const handleSubmitContact = (e: React.FormEvent) => {
+  const handleSubmitContact = async (e: React.FormEvent) => {
     e.preventDefault()
-    alert("Message envoyé ! Nous vous répondrons dans les plus brefs délais.")
-    setContactForm({ subject: "", message: "" })
+    
+    if (!contactForm.subject.trim() || !contactForm.message.trim()) {
+      toast.error("Veuillez remplir tous les champs")
+      return
+    }
+
+    setIsSubmitting(true)
+    
+    try {
+      await apiRequest("/support/message", {
+        method: "POST",
+        body: JSON.stringify({
+          subject: contactForm.subject,
+          message: contactForm.message,
+        }),
+      })
+      
+      toast.success("Message envoyé avec succès !", {
+        description: "Nous vous répondrons dans les plus brefs délais.",
+        icon: <CheckCircle className="h-5 w-5 text-green-500" />,
+      })
+      setContactForm({ subject: "", message: "" })
+    } catch (error: any) {
+      toast.error("Erreur lors de l'envoi", {
+        description: error.message || "Une erreur est survenue. Veuillez réessayer.",
+      })
+    } finally {
+      setIsSubmitting(false)
+    }
   }
 
   return (
@@ -128,6 +158,7 @@ export default function HelpPage() {
                     value={contactForm.subject}
                     onChange={(e) => setContactForm({ ...contactForm, subject: e.target.value })}
                     required
+                    disabled={isSubmitting}
                   />
                 </div>
                 <div className="space-y-2">
@@ -139,10 +170,18 @@ export default function HelpPage() {
                     value={contactForm.message}
                     onChange={(e) => setContactForm({ ...contactForm, message: e.target.value })}
                     required
+                    disabled={isSubmitting}
                   />
                 </div>
-                <Button type="submit" className="w-full sm:w-auto">
-                  Envoyer le message
+                <Button type="submit" className="w-full sm:w-auto" disabled={isSubmitting}>
+                  {isSubmitting ? (
+                    <>
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      Envoi en cours...
+                    </>
+                  ) : (
+                    "Envoyer le message"
+                  )}
                 </Button>
               </form>
             </CardContent>
