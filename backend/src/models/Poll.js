@@ -15,23 +15,45 @@ const Poll = {
     return rows[0];
   },
 
+  findByIdWithCreator: async (id) => {
+    const [rows] = await pool.execute(
+      `SELECT p.*, u.id as creatorId, u.username as creatorName, u.avatar_url as creatorAvatar 
+       FROM polls p 
+       LEFT JOIN users u ON p.created_by = u.id 
+       WHERE p.id = ?`,
+      [id]
+    );
+    return rows[0];
+  },
+
   findPublic: async (filters, pagination) => {
-    let query = `SELECT p.*, u.username as created_by_username, u.avatar_url as created_by_avatar, COUNT(v.id) as totalVotes, (
-      SELECT GROUP_CONCAT(CONCAT_WS(':', v2.option_selected, COUNT(v2.id)))
-      FROM votes v2 WHERE v2.poll_id = p.id GROUP BY v2.option_selected
-    ) as voteDistribution FROM polls p LEFT JOIN votes v ON p.id = v.poll_id LEFT JOIN users u ON p.created_by = u.id WHERE p.is_public = 1`;
+    let query = `
+      SELECT p.*, u.username as creatorName, u.avatar_url as creatorAvatar,
+      (SELECT COUNT(*) FROM votes v WHERE v.poll_id = p.id) as totalVotes
+      FROM polls p 
+      LEFT JOIN users u ON p.created_by = u.id 
+      WHERE p.is_public = 1`;
     const params = [];
 
     if (filters.status && filters.status !== 'all') {
-      query += ' AND p.status = ?';
-      params.push(filters.status);
-    }
-    if (filters.search) {
-      query += ' AND p.question LIKE ?';
-      params.push(`%${filters.search}%`);
+      if (filters.status === 'active') {
+        query += ' AND p.status = ? AND p.end_time > NOW()';
+        params.push('active');
+      } else if (filters.status === 'ended') {
+        query += ' AND (p.status = ? OR p.end_time <= NOW())';
+        params.push('ended');
+      } else {
+        query += ' AND p.status = ?';
+        params.push(filters.status);
+      }
     }
 
-    query += ' GROUP BY p.id ORDER BY p.created_at DESC';
+    if (filters.search) {
+      query += ' AND (p.question LIKE ? OR p.description LIKE ?)';
+      params.push(`%${filters.search}%`, `%${filters.search}%`);
+    }
+
+    query += ' ORDER BY p.created_at DESC';
 
     if (pagination.limit && pagination.offset !== undefined) {
       query += ' LIMIT ? OFFSET ?';
@@ -42,14 +64,55 @@ const Poll = {
     return rows;
   },
 
+  countPublic: async (filters) => {
+    let query = 'SELECT COUNT(*) as total FROM polls p WHERE p.is_public = 1';
+    const params = [];
+
+    if (filters.status && filters.status !== 'all') {
+      if (filters.status === 'active') {
+        query += ' AND p.status = ? AND p.end_time > NOW()';
+        params.push('active');
+      } else if (filters.status === 'ended') {
+        query += ' AND (p.status = ? OR p.end_time <= NOW())';
+        params.push('ended');
+      } else {
+        query += ' AND p.status = ?';
+        params.push(filters.status);
+      }
+    }
+
+    if (filters.search) {
+      query += ' AND (p.question LIKE ? OR p.description LIKE ?)';
+      params.push(`%${filters.search}%`, `%${filters.search}%`);
+    }
+
+    const [rows] = await pool.execute(query, params);
+    return rows[0].total;
+  },
+
   findByCreator: async (userId, filters) => {
-    let query = 'SELECT * FROM polls WHERE created_by = ?';
+    let query = `
+      SELECT p.*, 
+      (SELECT COUNT(*) FROM votes v WHERE v.poll_id = p.id) as totalVotes
+      FROM polls p 
+      WHERE p.created_by = ?`;
     const params = [userId];
 
-    if (filters.status) {
-      query += ' AND status = ?';
-      params.push(filters.status);
+    if (filters.status && filters.status !== 'all') {
+      if (filters.status === 'active') {
+        query += ' AND p.status = ? AND p.end_time > NOW()';
+        params.push('active');
+      } else if (filters.status === 'ended') {
+        query += ' AND (p.status = ? OR p.end_time <= NOW())';
+        params.push('ended');
+      } else {
+        query += ' AND p.status = ?';
+        params.push(filters.status);
+      }
     }
+
+    query += ' ORDER BY p.created_at DESC';
+
     if (filters.page && filters.limit) {
       const offset = (filters.page - 1) * filters.limit;
       query += ' LIMIT ? OFFSET ?';
@@ -60,11 +123,64 @@ const Poll = {
     return rows;
   },
 
+  countByCreator: async (userId, filters) => {
+    let query = 'SELECT COUNT(*) as total FROM polls p WHERE p.created_by = ?';
+    const params = [userId];
+
+    if (filters.status && filters.status !== 'all') {
+      if (filters.status === 'active') {
+        query += ' AND p.status = ? AND p.end_time > NOW()';
+        params.push('active');
+      } else if (filters.status === 'ended') {
+        query += ' AND (p.status = ? OR p.end_time <= NOW())';
+        params.push('ended');
+      } else {
+        query += ' AND p.status = ?';
+        params.push(filters.status);
+      }
+    }
+
+    const [rows] = await pool.execute(query, params);
+    return rows[0].total;
+  },
+
+  findByGroup: async (groupId, filters = {}) => {
+    let query = `
+      SELECT p.*, u.username as creatorName, u.avatar_url as creatorAvatar,
+      (SELECT COUNT(*) FROM votes v WHERE v.poll_id = p.id) as totalVotes
+      FROM polls p 
+      LEFT JOIN users u ON p.created_by = u.id 
+      WHERE p.group_id = ?`;
+    const params = [groupId];
+
+    if (filters.status && filters.status !== 'all') {
+      query += ' AND p.status = ?';
+      params.push(filters.status);
+    }
+
+    query += ' ORDER BY p.created_at DESC';
+
+    const [rows] = await pool.execute(query, params);
+    return rows;
+  },
+
   update: async (id, updates) => {
     const fields = [];
     const values = [];
+    
+    const fieldMapping = {
+      question: 'question',
+      description: 'description',
+      endTime: 'end_time',
+      end_time: 'end_time',
+      status: 'status',
+      isPublic: 'is_public',
+      is_public: 'is_public',
+    };
+
     for (const key in updates) {
-      fields.push(`${key} = ?`);
+      const dbField = fieldMapping[key] || key;
+      fields.push(`${dbField} = ?`);
       values.push(updates[key]);
     }
     values.push(id);
@@ -83,12 +199,36 @@ const Poll = {
     return result.affectedRows;
   },
 
+  delete: async (id) => {
+    // First delete all votes for this poll
+    await pool.execute('DELETE FROM votes WHERE poll_id = ?', [id]);
+    // Then delete the poll
+    const [result] = await pool.execute('DELETE FROM polls WHERE id = ?', [id]);
+    return result.affectedRows;
+  },
+
   findActivePollsEndingSoon: async () => {
     const [rows] = await pool.execute(
-      'SELECT id, question FROM polls WHERE status = ? AND end_time <= UTC_TIMESTAMP()',
+      'SELECT id, question FROM polls WHERE status = ? AND end_time <= NOW()',
       ['active']
     );
     return rows;
+  },
+
+  // Get user stats
+  getUserStats: async (userId) => {
+    const [created] = await pool.execute(
+      'SELECT COUNT(*) as count FROM polls WHERE created_by = ?',
+      [userId]
+    );
+    const [activeCreated] = await pool.execute(
+      'SELECT COUNT(*) as count FROM polls WHERE created_by = ? AND status = ? AND end_time > NOW()',
+      [userId, 'active']
+    );
+    return {
+      totalCreated: created[0].count,
+      activeCreated: activeCreated[0].count,
+    };
   },
 };
 

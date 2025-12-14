@@ -10,7 +10,16 @@ const calculateResults = async (pollId) => {
 
   const voteDistribution = await Vote.getVoteDistribution(pollId);
   const totalVotes = await Vote.countByPoll(pollId);
-  const options = JSON.parse(poll.options);
+  
+  // Handle double-encoded JSON or already parsed options
+  let options = poll.options;
+  if (typeof options === 'string') {
+    options = JSON.parse(options);
+    // Check if it's still a string (double-encoded)
+    if (typeof options === 'string') {
+      options = JSON.parse(options);
+    }
+  }
 
   const results = options.map((option, index) => {
     const optionId = index + 1;
@@ -64,9 +73,27 @@ const getPollStats = async (pollId) => {
 
   const totalVotes = await Vote.countByPoll(pollId);
   const voteDistribution = await Vote.getVoteDistribution(pollId);
-  const options = JSON.parse(poll.options);
+  
+  // Handle double-encoded JSON or already parsed options
+  let options = poll.options;
+  if (typeof options === 'string') {
+    options = JSON.parse(options);
+    // Check if it's still a string (double-encoded)
+    if (typeof options === 'string') {
+      options = JSON.parse(options);
+    }
+  }
+  
+  const votersList = await Vote.getVotersList(pollId);
+  const votesOverTime = await Vote.getVotesOverTime(pollId);
 
-  const participationRate = totalVotes > 0 ? (totalVotes / 100) * 100 : 0; // Assuming 100 is max potential voters for simplicity for now
+  // Calculate participation rate based on group members if it's a group poll
+  let participationRate = 0;
+  if (poll.group_id) {
+    const groupMembers = await GroupMember.findByGroup(poll.group_id);
+    const approvedMembers = groupMembers.filter(m => m.status === 'approved').length;
+    participationRate = approvedMembers > 0 ? (totalVotes / approvedMembers) * 100 : 0;
+  }
 
   const optionStats = options.map((option, index) => {
     const optionId = index + 1;
@@ -74,20 +101,43 @@ const getPollStats = async (pollId) => {
     const percentage = totalVotes > 0 ? (votes / totalVotes) * 100 : 0;
     return {
       option,
+      optionIndex: optionId,
       votes,
       percentage: parseFloat(percentage.toFixed(2)),
     };
   });
 
-  // For simplicity, votes over time and list of voters are not implemented here
-  // as they would require more complex database queries and potentially a separate model for vote history.
+  // Format voters list by option
+  const votersByOption = {};
+  votersList.forEach(voter => {
+    if (!votersByOption[voter.option_selected]) {
+      votersByOption[voter.option_selected] = [];
+    }
+    votersByOption[voter.option_selected].push({
+      id: voter.id,
+      name: voter.username,
+      email: voter.email,
+      avatar: voter.avatar_url,
+      votedAt: voter.voted_at,
+    });
+  });
 
   return {
+    poll: {
+      id: poll.id,
+      question: poll.question,
+      description: poll.description,
+      options: options,
+      endTime: poll.end_time,
+      status: poll.status,
+      isPublic: poll.is_public,
+      createdAt: poll.created_at,
+    },
     totalVotes,
     participationRate: parseFloat(participationRate.toFixed(2)),
     optionStats,
-    // votesOverTime: [], // Placeholder
-    // listOfVoters: [], // Placeholder
+    votesOverTime,
+    votersByOption,
   };
 };
 

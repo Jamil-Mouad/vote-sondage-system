@@ -1,6 +1,32 @@
 // API Client pour la communication avec le backend
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000/api"
 
+// Fonction pour récupérer le token depuis auth-storage (Zustand persist)
+function getAuthToken(): string | null {
+  if (typeof window === "undefined") return null
+  
+  try {
+    // D'abord essayer de récupérer depuis le store Zustand persisté
+    const authStorage = localStorage.getItem("auth-storage")
+    if (authStorage) {
+      const parsed = JSON.parse(authStorage)
+      if (parsed.state?.token) {
+        return parsed.state.token
+      }
+    }
+    
+    // Fallback: essayer l'ancienne clé accessToken (pour compatibilité)
+    const legacyToken = localStorage.getItem("accessToken")
+    if (legacyToken) {
+      return legacyToken
+    }
+  } catch (e) {
+    console.error("Error reading auth token:", e)
+  }
+  
+  return null
+}
+
 // Fonction utilitaire pour gérer les appels API
 async function apiRequest<T>(
   endpoint: string,
@@ -8,9 +34,8 @@ async function apiRequest<T>(
 ): Promise<{ data: T; success: boolean; message?: string }> {
   const url = `${API_BASE_URL}${endpoint}`
 
-  // Récupérer le token d'authentification depuis localStorage si disponible
-  const token =
-    typeof window !== "undefined" ? localStorage.getItem("accessToken") : null
+  // Récupérer le token d'authentification
+  const token = getAuthToken()
 
   const headers: HeadersInit = {
     "Content-Type": "application/json",

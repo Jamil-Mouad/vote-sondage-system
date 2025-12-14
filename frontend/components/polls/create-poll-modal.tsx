@@ -10,7 +10,7 @@ import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
 import { toast } from "sonner"
-import { pollsApi } from "@/lib/api"
+import { usePollStore } from "@/store/poll-store"
 import { Vote, Plus, Trash2, Loader2, AlertCircle } from "lucide-react"
 
 interface CreatePollModalProps {
@@ -21,6 +21,7 @@ interface CreatePollModalProps {
 }
 
 export function CreatePollModal({ open, onOpenChange, onSuccess, groupId }: CreatePollModalProps) {
+  const { createPoll } = usePollStore()
   const [isLoading, setIsLoading] = useState(false)
   const [formData, setFormData] = useState({
     question: "",
@@ -78,28 +79,32 @@ export function CreatePollModal({ open, onOpenChange, onSuccess, groupId }: Crea
     setIsLoading(true)
 
     try {
-      await pollsApi.createPoll({
+      const result = await createPoll({
         question: formData.question,
         description: formData.description || undefined,
-        options: validOptions,
+        options: validOptions.map(text => ({ text })),
         endTime: endTime.toISOString(),
         isPublic: formData.visibility === "public",
         groupId: formData.visibility === "private" ? groupId : undefined,
       })
 
-      toast.success("Sondage créé avec succès !")
-      onOpenChange(false)
-      onSuccess?.()
+      if (result.success) {
+        toast.success("Sondage créé avec succès !")
+        onOpenChange(false)
+        onSuccess?.()
 
-      // Reset form
-      setFormData({
-        question: "",
-        description: "",
-        options: ["", ""],
-        endDate: "",
-        endTime: "",
-        visibility: groupId ? "private" : "public",
-      })
+        // Reset form
+        setFormData({
+          question: "",
+          description: "",
+          options: ["", ""],
+          endDate: "",
+          endTime: "",
+          visibility: groupId ? "private" : "public",
+        })
+      } else {
+        toast.error(result.error || "Erreur lors de la création")
+      }
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "Erreur lors de la création")
     } finally {

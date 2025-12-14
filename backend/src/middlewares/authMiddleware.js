@@ -19,6 +19,20 @@ const authenticateToken = (req, res, next) => {
   next();
 };
 
+// Optional authentication - doesn't fail if no token, just sets req.user if valid token exists
+const optionalAuth = (req, res, next) => {
+  const authHeader = req.headers['authorization'];
+  const token = authHeader && authHeader.split(' ')[1];
+
+  if (token) {
+    const user = verifyAccessToken(token);
+    if (user) {
+      req.user = user;
+    }
+  }
+  next();
+};
+
 const authorizeRoles = (roles) => {
   return (req, res, next) => {
     if (!req.user || !roles.includes(req.user.role)) {
@@ -28,4 +42,4 @@ const authorizeRoles = (roles) => {
   };
 };
 
-module.exports = { authenticateToken, authorizeRoles };
+module.exports = { authenticateToken, optionalAuth, authorizeRoles };

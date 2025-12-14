@@ -17,9 +17,34 @@ const GroupMember = {
     return rows[0];
   },
 
+  findByGroup: async (groupId) => {
+    const [rows] = await pool.execute(
+      `SELECT gm.*, u.id as userId, u.username, u.email, u.avatar_url 
+       FROM group_members gm 
+       JOIN users u ON gm.user_id = u.id 
+       WHERE gm.group_id = ?`,
+      [groupId]
+    );
+    return rows;
+  },
+
+  findByUser: async (userId) => {
+    const [rows] = await pool.execute(
+      `SELECT gm.*, g.name as groupName, g.description, g.is_public 
+       FROM group_members gm 
+       JOIN \`groups\` g ON gm.group_id = g.id 
+       WHERE gm.user_id = ? AND gm.status = 'approved'`,
+      [userId]
+    );
+    return rows;
+  },
+
   getPendingRequests: async (groupId) => {
     const [rows] = await pool.execute(
-      'SELECT gm.id, u.username, u.email FROM group_members gm JOIN users u ON gm.user_id = u.id WHERE gm.group_id = ? AND gm.status = \'pending\'',
+      `SELECT gm.id, gm.user_id, u.username, u.email, u.avatar_url, gm.created_at 
+       FROM group_members gm 
+       JOIN users u ON gm.user_id = u.id 
+       WHERE gm.group_id = ? AND gm.status = 'pending'`,
       [groupId]
     );
     return rows;
@@ -39,6 +64,14 @@ const GroupMember = {
       [groupId, userId]
     );
     return result.affectedRows;
+  },
+
+  countByGroup: async (groupId) => {
+    const [rows] = await pool.execute(
+      'SELECT COUNT(*) as count FROM group_members WHERE group_id = ? AND status = ?',
+      [groupId, 'approved']
+    );
+    return rows[0].count;
   },
 };
 

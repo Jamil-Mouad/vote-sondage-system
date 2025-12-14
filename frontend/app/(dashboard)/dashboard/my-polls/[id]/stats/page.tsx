@@ -5,37 +5,34 @@ import Link from "next/link"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
-import { pollsApi } from "@/lib/api"
-import type { Poll } from "@/store/poll-store"
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
+import { usePollStore, type PollStats } from "@/store/poll-store"
 import { useCountdown } from "@/hooks/use-countdown"
 import { cn } from "@/lib/utils"
 import { ArrowLeft, Users, Target, TrendingUp, Calendar, Clock, Loader2, BarChart2 } from "lucide-react"
 import { PieChart, Pie, Cell, ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip } from "recharts"
 
 const COLORS = ["var(--primary)", "#10B981", "#F59E0B", "#EF4444"]
+const DEFAULT_DATE = "2099-12-31T23:59:59.000Z" // Far future date as default
 
 export default function PollStatsPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params)
-  const [poll, setPoll] = useState<Poll | null>(null)
-  const [isLoading, setIsLoading] = useState(true)
+  const { fetchPollStats, isLoading } = usePollStore()
+  const [stats, setStats] = useState<PollStats | null>(null)
 
   useEffect(() => {
-    const loadPoll = async () => {
-      setIsLoading(true)
-      try {
-        const data = await pollsApi.getPoll(Number.parseInt(id))
-        setPoll(data)
-      } catch (error) {
-        console.error("Error loading poll:", error)
-      } finally {
-        setIsLoading(false)
+    const loadStats = async () => {
+      const data = await fetchPollStats(Number.parseInt(id))
+      if (data) {
+        setStats(data)
       }
     }
-    loadPoll()
+    loadStats()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id])
 
-  const countdown = useCountdown(poll?.endTime || new Date().toISOString())
-  const isEnded = poll?.status === "ended" || countdown.isExpired
+  const countdown = useCountdown(stats?.poll?.endTime || DEFAULT_DATE)
+  const isEnded = stats?.poll?.status === "ended" || countdown.isExpired
 
   if (isLoading) {
     return (
@@ -45,10 +42,11 @@ export default function PollStatsPage({ params }: { params: Promise<{ id: string
     )
   }
 
-  if (!poll) {
+  if (!stats) {
     return (
       <div className="text-center py-12">
-        <h3 className="text-lg font-semibold mb-2">Sondage non trouvé</h3>
+        <h3 className="text-lg font-semibold mb-2">Sondage non trouvé ou accès refusé</h3>
+        <p className="text-muted-foreground mb-4">Seul le créateur peut voir les statistiques.</p>
         <Button asChild>
           <Link href="/dashboard/my-polls">Retour à mes sondages</Link>
         </Button>
@@ -56,29 +54,22 @@ export default function PollStatsPage({ params }: { params: Promise<{ id: string
     )
   }
 
-  const pieData = poll.options.map((opt) => ({
-    name: opt.text,
+  const pieData = stats.optionStats.map((opt) => ({
+    name: opt.option,
     value: opt.votes,
   }))
 
-  const barData = poll.options.map((opt) => ({
-    name: opt.text,
+  const barData = stats.optionStats.map((opt) => ({
+    name: opt.option,
     votes: opt.votes,
     percentage: opt.percentage,
   }))
 
-  // Simulated daily votes data
-  const dailyVotesData = [
-    { date: "Lun", votes: 15 },
-    { date: "Mar", votes: 22 },
-    { date: "Mer", votes: 18 },
-    { date: "Jeu", votes: 25 },
-    { date: "Ven", votes: 12 },
-    { date: "Sam", votes: 8 },
-    { date: "Dim", votes: poll.totalVotes - 100 },
-  ]
-
-  const participationRate = ((poll.totalVotes / 200) * 100).toFixed(1)
+  // Format daily votes data from API
+  const dailyVotesData = stats.votesOverTime.map(item => ({
+    date: new Date(item.date).toLocaleDateString("fr-FR", { weekday: "short" }),
+    votes: item.count,
+  }))
 
   return (
     <div className="space-y-6">
@@ -99,8 +90,11 @@ export default function PollStatsPage({ params }: { params: Promise<{ id: string
         <CardContent className="p-4 sm:p-6">
           <div className="flex items-center gap-2 mb-3">
             <BarChart2 className="h-5 w-5" style={{ color: "var(--primary)" }} />
-            <h2 className="text-lg font-semibold">{poll.question}</h2>
+            <h2 className="text-lg font-semibold">{stats.poll.question}</h2>
           </div>
+          {stats.poll.description && (
+            <p className="text-muted-foreground mb-3">{stats.poll.description}</p>
+          )}
           <div className="flex flex-wrap items-center gap-3 text-sm">
             <Badge variant={isEnded ? "destructive" : "default"} className={!isEnded ? "bg-green-500" : ""}>
               {isEnded ? "Terminé" : "Actif"}
@@ -118,7 +112,7 @@ export default function PollStatsPage({ params }: { params: Promise<{ id: string
             )}
             <span className="flex items-center gap-1 text-muted-foreground">
               <Calendar className="h-4 w-4" />
-              Créé le {new Date(poll.createdAt).toLocaleDateString("fr-FR")}
+              Créé le {new Date(stats.poll.createdAt).toLocaleDateString("fr-FR")}
             </span>
           </div>
         </CardContent>
@@ -132,9 +126,8 @@ export default function PollStatsPage({ params }: { params: Promise<{ id: string
               <Users className="h-6 w-6" style={{ color: "var(--primary)" }} />
             </div>
             <div>
-              <p className="text-2xl font-bold">{poll.totalVotes}</p>
-              <p className="text-sm text-muted-foreground">Votes</p>
-              <p className="text-xs text-green-600">+15 aujourd'hui</p>
+              <p className="text-2xl font-bold">{stats.totalVotes}</p>
+              <p className="text-sm text-muted-foreground">Votes totaux</p>
             </div>
           </CardContent>
         </Card>
@@ -145,8 +138,8 @@ export default function PollStatsPage({ params }: { params: Promise<{ id: string
               <Target className="h-6 w-6 text-green-600" />
             </div>
             <div>
-              <p className="text-2xl font-bold">200</p>
-              <p className="text-sm text-muted-foreground">Éligibles</p>
+              <p className="text-2xl font-bold">{stats.optionStats.length}</p>
+              <p className="text-sm text-muted-foreground">Options</p>
             </div>
           </CardContent>
         </Card>
@@ -157,9 +150,8 @@ export default function PollStatsPage({ params }: { params: Promise<{ id: string
               <TrendingUp className="h-6 w-6 text-amber-600" />
             </div>
             <div>
-              <p className="text-2xl font-bold">{participationRate}%</p>
+              <p className="text-2xl font-bold">{stats.participationRate}%</p>
               <p className="text-sm text-muted-foreground">Participation</p>
-              <p className="text-xs text-green-600">+5% vs hier</p>
             </div>
           </CardContent>
         </Card>
@@ -184,7 +176,7 @@ export default function PollStatsPage({ params }: { params: Promise<{ id: string
                     outerRadius={90}
                     paddingAngle={2}
                     dataKey="value"
-                    label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}
+                    label={({ name, percent }) => `${name} ${((percent ?? 0) * 100).toFixed(0)}%`}
                     labelLine={false}
                   >
                     {pieData.map((entry, index) => (
@@ -202,10 +194,10 @@ export default function PollStatsPage({ params }: { params: Promise<{ id: string
               </ResponsiveContainer>
             </div>
             <div className="grid grid-cols-2 gap-2 mt-4">
-              {poll.options.map((opt, index) => (
-                <div key={opt.index} className="flex items-center gap-2">
+              {stats.optionStats.map((opt, index) => (
+                <div key={opt.optionIndex} className="flex items-center gap-2">
                   <div className="w-3 h-3 rounded-full" style={{ background: COLORS[index % COLORS.length] }} />
-                  <span className="text-sm truncate">{opt.text}</span>
+                  <span className="text-sm truncate">{opt.option}</span>
                   <span className="text-sm font-bold ml-auto">{opt.percentage}%</span>
                 </div>
               ))}
@@ -240,29 +232,31 @@ export default function PollStatsPage({ params }: { params: Promise<{ id: string
       </div>
 
       {/* Votes Over Time */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-lg">Votes par Jour</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="h-64">
-            <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={dailyVotesData}>
-                <XAxis dataKey="date" />
-                <YAxis />
-                <Tooltip
-                  contentStyle={{
-                    background: "var(--card)",
-                    border: "1px solid var(--border)",
-                    borderRadius: "8px",
-                  }}
-                />
-                <Bar dataKey="votes" fill="var(--primary)" radius={[4, 4, 0, 0]} />
-              </BarChart>
-            </ResponsiveContainer>
-          </div>
-        </CardContent>
-      </Card>
+      {dailyVotesData.length > 0 && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-lg">Votes par Jour</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="h-64">
+              <ResponsiveContainer width="100%" height="100%">
+                <BarChart data={dailyVotesData}>
+                  <XAxis dataKey="date" />
+                  <YAxis />
+                  <Tooltip
+                    contentStyle={{
+                      background: "var(--card)",
+                      border: "1px solid var(--border)",
+                      borderRadius: "8px",
+                    }}
+                  />
+                  <Bar dataKey="votes" fill="var(--primary)" radius={[4, 4, 0, 0]} />
+                </BarChart>
+              </ResponsiveContainer>
+            </div>
+          </CardContent>
+        </Card>
+      )}
 
       {/* Detailed Results Table */}
       <Card>
@@ -281,12 +275,12 @@ export default function PollStatsPage({ params }: { params: Promise<{ id: string
                 </tr>
               </thead>
               <tbody>
-                {poll.options.map((opt, index) => (
-                  <tr key={opt.index} className="border-b last:border-0">
+                {stats.optionStats.map((opt, index) => (
+                  <tr key={opt.optionIndex} className="border-b last:border-0">
                     <td className="py-3 px-4">
                       <div className="flex items-center gap-2">
                         <div className="w-3 h-3 rounded-full" style={{ background: COLORS[index % COLORS.length] }} />
-                        {opt.text}
+                        {opt.option}
                       </div>
                     </td>
                     <td className="text-right py-3 px-4 font-medium">{opt.votes}</td>
@@ -309,6 +303,54 @@ export default function PollStatsPage({ params }: { params: Promise<{ id: string
           </div>
         </CardContent>
       </Card>
+
+      {/* Voters List */}
+      {Object.keys(stats.votersByOption).length > 0 && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-lg">Liste des Votants</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-6">
+              {stats.optionStats.map((opt, index) => {
+                const voters = stats.votersByOption[opt.optionIndex] || []
+                if (voters.length === 0) return null
+                
+                return (
+                  <div key={opt.optionIndex}>
+                    <div className="flex items-center gap-2 mb-3">
+                      <div className="w-3 h-3 rounded-full" style={{ background: COLORS[index % COLORS.length] }} />
+                      <h4 className="font-medium">{opt.option}</h4>
+                      <Badge variant="secondary" className="ml-auto">{voters.length} votes</Badge>
+                    </div>
+                    <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
+                      {voters.map((voter) => (
+                        <div key={voter.id} className="flex items-center gap-2 p-2 rounded-lg bg-muted/50">
+                          <Avatar className="h-8 w-8">
+                            <AvatarImage 
+                              src={voter.avatar ? `${process.env.NEXT_PUBLIC_API_URL?.replace('/api', '') || 'http://localhost:5000'}${voter.avatar}` : undefined} 
+                              alt={voter.name} 
+                            />
+                            <AvatarFallback className="text-xs">
+                              {voter.name?.slice(0, 2).toUpperCase() || "U"}
+                            </AvatarFallback>
+                          </Avatar>
+                          <div className="flex-1 min-w-0">
+                            <p className="text-sm font-medium truncate">{voter.name}</p>
+                            <p className="text-xs text-muted-foreground">
+                              {new Date(voter.votedAt).toLocaleDateString("fr-FR")}
+                            </p>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )
+              })}
+            </div>
+          </CardContent>
+        </Card>
+      )}
     </div>
   )
 }

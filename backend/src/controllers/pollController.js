@@ -6,6 +6,20 @@ const { success, error } = require('../utils/responseHandler');
 const { calculateResults, checkPollAccess, getPollStats: getPollStatsService } = require('../services/pollService');
 const { emitPollUpdated, emitPollEnded, notifyGroup } = require('../services/socketService'); // Assuming these exist in socketService
 
+// Helper function to safely parse options (handles double-encoded JSON)
+const parseOptions = (options) => {
+  if (Array.isArray(options)) return options;
+  if (typeof options === 'string') {
+    let parsed = JSON.parse(options);
+    // Check if it's still a string (double-encoded)
+    if (typeof parsed === 'string') {
+      parsed = JSON.parse(parsed);
+    }
+    return parsed;
+  }
+  return options;
+};
+
 const createPoll = async (req, res) => {
   try {
     const { question, description, options, endTime, isPublic, groupId } = req.body;
@@ -49,17 +63,31 @@ const listPublicPolls = async (req, res) => {
 
     let polls = await Poll.findPublic(filters, pagination);
 
-    // For each poll, include totalVotes and hasVoted
+    // For each poll, include totalVotes, hasVoted, and myVote
     polls = await Promise.all(polls.map(async poll => {
       const totalVotes = await Vote.countByPoll(poll.id);
       let hasVoted = false;
+      let myVote = null;
+      
       if (req.user) { // Check if user is authenticated
         const userVote = await Vote.findByPollAndUser(poll.id, req.user.id);
-        hasVoted = !!userVote;
+        if (userVote) {
+          hasVoted = true;
+          myVote = userVote.option_selected;
+        }
       }
+      
       // Parse options from JSON string back to array
-      poll.options = JSON.parse(poll.options);
-      return { ...poll, totalVotes, hasVoted };
+      poll.options = parseOptions(poll.options);
+      
+      // Get results if user has voted or poll ended
+      let results = null;
+      const isEnded = new Date(poll.end_time) <= new Date() || poll.status === 'ended';
+      if (hasVoted || isEnded) {
+        results = await calculateResults(poll.id);
+      }
+      
+      return { ...poll, totalVotes, hasVoted, myVote, results };
     }));
 
     success(res, polls, 'Public polls retrieved successfully.');
@@ -94,7 +122,7 @@ const getPollById = async (req, res) => {
     }
 
     // Parse options
-    poll.options = JSON.parse(poll.options);
+    poll.options = parseOptions(poll.options);
 
     success(res, { ...poll, results, hasVoted: !!userVoted }, 'Poll details retrieved successfully.');
   } catch (err) {
@@ -112,7 +140,7 @@ const getMyPolls = async (req, res) => {
 
     polls = await Promise.all(polls.map(async poll => {
       const totalVotes = await Vote.countByPoll(poll.id);
-      poll.options = JSON.parse(poll.options);
+      poll.options = parseOptions(poll.options);
       return { ...poll, totalVotes };
     }));
 
@@ -227,7 +255,7 @@ const getPollHistory = async (req, res) => {
       if (poll) {
         const isEnded = new Date(poll.end_time) <= new Date();
         const myVote = vote.option_selected;
-        const myVoteText = JSON.parse(poll.options)[myVote - 1]; // Assuming option_selected is 1-indexed
+        const myVoteText = parseOptions(poll.options)[myVote - 1]; // Assuming option_selected is 1-indexed
 
         let results = null;
         if (isEnded) {

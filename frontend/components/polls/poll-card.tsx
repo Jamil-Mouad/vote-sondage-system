@@ -8,9 +8,9 @@ import { Button } from "@/components/ui/button"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
 import { LoginRequiredModal } from "@/components/auth/login-required-modal"
 import { useAuthStore } from "@/store/auth-store"
+import { usePollStore } from "@/store/poll-store"
 import { toast } from "sonner"
 import { useCountdown } from "@/hooks/use-countdown"
-import { pollsApi } from "@/lib/api"
 import type { Poll } from "@/store/poll-store"
 import { cn } from "@/lib/utils"
 import { Clock, Users, MoreHorizontal, Share2, Flag, Check, Trophy } from "lucide-react"
@@ -21,15 +21,29 @@ interface PollCardProps {
 }
 
 export function PollCard({ poll, onVote }: PollCardProps) {
-  const { isAuthenticated } = useAuthStore()
+  const { isAuthenticated, user } = useAuthStore()
+  const { vote } = usePollStore()
   const [isVoting, setIsVoting] = useState(false)
   const [localPoll, setLocalPoll] = useState(poll)
   const [showLoginModal, setShowLoginModal] = useState(false)
-  const countdown = useCountdown(poll.endTime)
+  const countdown = useCountdown(poll.end_time)
 
   const isEnded = poll.status === "ended" || countdown.isExpired
-  const canVote = !isEnded && !poll.hasVoted && !poll.isCreator
-  const showResults = poll.hasVoted || isEnded || poll.isCreator
+  const isCreator = user?.id !== undefined && Number(user.id) === poll.created_by
+  const canVote = !isEnded && !localPoll.hasVoted && !isCreator
+
+  // Parse results for display
+  const optionsWithStats = localPoll.options.map((optionText, index) => {
+    const result = localPoll.results?.results?.find(r => r.option === optionText)
+    return {
+      index: index + 1,
+      text: optionText,
+      votes: result?.votes || 0,
+      percentage: result?.percentage || 0,
+    }
+  })
+
+  const showResults = localPoll.hasVoted || isEnded || isCreator
 
   const formatTimeAgo = (dateString: string) => {
     const date = new Date(dateString)
@@ -51,27 +65,80 @@ export function PollCard({ poll, onVote }: PollCardProps) {
       return
     }
 
+    // Si c'est le créateur, afficher un toast d'info
+    if (isCreator) {
+      toast.info("Vous ne pouvez pas voter sur votre propre sondage")
+      return
+    }
+
+    // Si déjà voté, afficher un toast
+    if (localPoll.hasVoted) {
+      toast.warning("Vous avez déjà voté sur ce sondage")
+      return
+    }
+
     if (!canVote) return
 
     setIsVoting(true)
     try {
-      const updatedPoll = await pollsApi.vote(poll.id, optionIndex)
-      setLocalPoll(updatedPoll)
-      toast.success("Vote enregistré avec succès !")
-      onVote?.()
+      const success = await vote(poll.id, optionIndex)
+      if (success) {
+        // Calculate new results locally
+        const newTotalVotes = localPoll.totalVotes + 1
+        const newResults = localPoll.options.map((optionText, idx) => {
+          const currentResult = localPoll.results?.results?.find(r => r.option === optionText)
+          const currentVotes = currentResult?.votes || 0
+          const newVotes = (idx + 1) === optionIndex ? currentVotes + 1 : currentVotes
+          return {
+            option: optionText,
+            votes: newVotes,
+            percentage: newTotalVotes > 0 ? parseFloat(((newVotes / newTotalVotes) * 100).toFixed(2)) : 0
+          }
+        })
+
+        // Update local state with new results
+        setLocalPoll(prev => ({
+          ...prev,
+          hasVoted: true,
+          myVote: optionIndex,
+          totalVotes: newTotalVotes,
+          results: {
+            totalVotes: newTotalVotes,
+            results: newResults
+          }
+        }))
+        toast.success("Vote enregistré avec succès !")
+        onVote?.()
+      }
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : "Erreur lors du vote")
+      const errorMessage = error instanceof Error ? error.message : "Erreur lors du vote"
+      // Afficher un toast approprié selon l'erreur
+      if (errorMessage.includes("creator") || errorMessage.includes("propre")) {
+        toast.info("Vous ne pouvez pas voter sur votre propre sondage")
+      } else if (errorMessage.includes("already voted") || errorMessage.includes("déjà voté") || errorMessage.includes("Conflict")) {
+        // Update local state to reflect that user has already voted
+        setLocalPoll(prev => ({ ...prev, hasVoted: true }))
+        toast.warning("Vous avez déjà voté sur ce sondage")
+      } else {
+        toast.error(errorMessage)
+      }
     } finally {
       setIsVoting(false)
     }
   }
 
   const getWinningOption = () => {
-    if (!isEnded) return null
-    return localPoll.options.reduce((prev, current) => (prev.votes > current.votes ? prev : current))
+    if (!isEnded || optionsWithStats.length === 0) return null
+    return optionsWithStats.reduce((prev, current) => (prev.votes > current.votes ? prev : current))
   }
 
   const winningOption = getWinningOption()
+  
+  // Build avatar URL
+  const avatarUrl = poll.creatorAvatar 
+    ? `${process.env.NEXT_PUBLIC_API_URL?.replace('/api', '') || 'http://localhost:5000'}${poll.creatorAvatar}`
+    : undefined
+  const creatorName = poll.creatorName || "Utilisateur"
 
   return (
     <Card className="overflow-hidden hover:shadow-lg transition-shadow">
@@ -80,19 +147,19 @@ export function PollCard({ poll, onVote }: PollCardProps) {
         <div className="flex items-start justify-between p-4 pb-0">
           <div className="flex items-center gap-3">
             <Avatar className="h-10 w-10">
-              <AvatarImage src={poll.createdBy.avatarUrl || "/placeholder.svg"} alt={poll.createdBy.username} />
+              <AvatarImage src={avatarUrl} alt={creatorName} />
               <AvatarFallback style={{ background: "var(--primary)", color: "white" }}>
-                {poll.createdBy.username.slice(0, 2).toUpperCase()}
+                {creatorName.slice(0, 2).toUpperCase()}
               </AvatarFallback>
             </Avatar>
             <div>
-              <p className="font-medium text-sm">@{poll.createdBy.username}</p>
-              <p className="text-xs text-muted-foreground">{formatTimeAgo(poll.createdAt)}</p>
+              <p className="font-medium text-sm">{creatorName}</p>
+              <p className="text-xs text-muted-foreground">{formatTimeAgo(poll.created_at)}</p>
             </div>
           </div>
 
           <div className="flex items-center gap-2">
-            {poll.isCreator && (
+            {isCreator && (
               <Badge variant="secondary" className="text-xs">
                 Créateur
               </Badge>
@@ -143,7 +210,7 @@ export function PollCard({ poll, onVote }: PollCardProps) {
 
         {/* Options */}
         <div className="px-4 pb-4 space-y-2">
-          {localPoll.options.map((option) => {
+          {optionsWithStats.map((option) => {
             const isMyVote = localPoll.myVote === option.index
             const isWinner = isEnded && winningOption?.index === option.index
 
@@ -156,8 +223,8 @@ export function PollCard({ poll, onVote }: PollCardProps) {
                   "w-full relative overflow-hidden rounded-lg border-2 p-3 text-left transition-all",
                   canVote && "hover:border-[var(--primary)] hover:bg-[var(--primary-50)] cursor-pointer",
                   !canVote && "cursor-default",
-                  isMyVote && "border-[var(--primary)]",
-                  isWinner && "border-green-500 bg-green-50 dark:bg-green-950/20",
+                  isMyVote && "border-green-500 bg-green-100 dark:bg-green-900/50",
+                  isWinner && !isMyVote && "border-amber-500 bg-amber-50 dark:bg-amber-950/20",
                   !isMyVote && !isWinner && "border-border",
                 )}
               >
@@ -166,7 +233,7 @@ export function PollCard({ poll, onVote }: PollCardProps) {
                   <div
                     className={cn(
                       "absolute inset-0 transition-all duration-500",
-                      isMyVote ? "bg-[var(--primary-100)]" : "bg-muted",
+                      isMyVote ? "bg-green-200 dark:bg-green-800/50" : "bg-muted/50",
                     )}
                     style={{ width: `${option.percentage}%` }}
                   />
@@ -175,12 +242,33 @@ export function PollCard({ poll, onVote }: PollCardProps) {
                 {/* Content */}
                 <div className="relative flex items-center justify-between">
                   <div className="flex items-center gap-2">
-                    {!showResults && <div className={cn("h-4 w-4 rounded-full border-2", "border-muted-foreground")} />}
-                    {isWinner && <Trophy className="h-4 w-4 text-green-600 dark:text-green-400" />}
-                    {isMyVote && <Check className="h-4 w-4" style={{ color: "var(--primary)" }} />}
-                    <span className="font-medium text-foreground">{option.text}</span>
+                    {/* Show radio circle only if not voted and not showing results */}
+                    {!showResults && !localPoll.hasVoted && (
+                      <div className={cn("h-4 w-4 rounded-full border-2", "border-muted-foreground")} />
+                    )}
+                    {/* Show checkmark for voted option */}
+                    {isMyVote && (
+                      <div className="h-5 w-5 rounded-full bg-green-500 flex items-center justify-center">
+                        <Check className="h-3 w-3 text-white" />
+                      </div>
+                    )}
+                    {/* Show trophy for winner if not my vote */}
+                    {isWinner && !isMyVote && <Trophy className="h-4 w-4 text-amber-600 dark:text-amber-400" />}
+                    <span className={cn(
+                      "font-medium",
+                      isMyVote ? "text-green-700 dark:text-green-300" : "text-foreground"
+                    )}>
+                      {option.text}
+                    </span>
                   </div>
-                  {showResults && <span className="font-bold text-sm text-foreground">{option.percentage}%</span>}
+                  {showResults && (
+                    <span className={cn(
+                      "font-bold text-sm",
+                      isMyVote ? "text-green-700 dark:text-green-300" : "text-foreground"
+                    )}>
+                      {option.percentage}%
+                    </span>
+                  )}
                 </div>
               </button>
             )

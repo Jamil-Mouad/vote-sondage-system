@@ -7,15 +7,15 @@ import { Card, CardContent } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { CreatePollModal } from "@/components/polls/create-poll-modal"
-import { pollsApi } from "@/lib/api"
-import type { Poll } from "@/store/poll-store"
+import { usePollStore, type Poll } from "@/store/poll-store"
 import { useCountdown } from "@/hooks/use-countdown"
 import { cn } from "@/lib/utils"
 import { Plus, ArrowLeft, BarChart2, Clock, Users, Trash2, Edit, Trophy, Loader2, Vote } from "lucide-react"
 import { toast } from "sonner"
 
 function PollMiniCard({ poll, onDelete }: { poll: Poll; onDelete: () => void }) {
-  const countdown = useCountdown(poll.endTime)
+  const { cancelPoll } = usePollStore()
+  const countdown = useCountdown(poll.end_time)
   const isEnded = poll.status === "ended" || countdown.isExpired
   const [isDeleting, setIsDeleting] = useState(false)
 
@@ -24,9 +24,11 @@ function PollMiniCard({ poll, onDelete }: { poll: Poll; onDelete: () => void }) 
 
     setIsDeleting(true)
     try {
-      await pollsApi.deletePoll(poll.id)
-      toast.success("Sondage supprimé")
-      onDelete()
+      const success = await cancelPoll(poll.id)
+      if (success) {
+        toast.success("Sondage supprimé")
+        onDelete()
+      }
     } catch (error) {
       toast.error("Erreur lors de la suppression")
     } finally {
@@ -34,7 +36,20 @@ function PollMiniCard({ poll, onDelete }: { poll: Poll; onDelete: () => void }) 
     }
   }
 
-  const winningOption = isEnded ? poll.options.reduce((prev, curr) => (prev.votes > curr.votes ? prev : curr)) : null
+  // Parse options for display
+  const optionsWithStats = poll.options.map((optionText, index) => {
+    const result = poll.results?.results?.find(r => r.option === optionText)
+    return {
+      index: index + 1,
+      text: optionText,
+      votes: result?.votes || 0,
+      percentage: result?.percentage || 0,
+    }
+  })
+
+  const winningOption = isEnded && optionsWithStats.length > 0 
+    ? optionsWithStats.reduce((prev, curr) => (prev.votes > curr.votes ? prev : curr)) 
+    : null
 
   return (
     <Card className="hover:shadow-md transition-shadow">
@@ -45,7 +60,7 @@ function PollMiniCard({ poll, onDelete }: { poll: Poll; onDelete: () => void }) 
               <Badge variant={isEnded ? "destructive" : "default"} className={!isEnded ? "bg-green-500" : ""}>
                 {isEnded ? "Terminé" : "Actif"}
               </Badge>
-              {poll.isPublic ? <Badge variant="outline">Public</Badge> : <Badge variant="secondary">Privé</Badge>}
+              {poll.is_public ? <Badge variant="outline">Public</Badge> : <Badge variant="secondary">Privé</Badge>}
             </div>
 
             <h3 className="font-semibold text-lg truncate">{poll.question}</h3>
@@ -59,7 +74,7 @@ function PollMiniCard({ poll, onDelete }: { poll: Poll; onDelete: () => void }) 
               ) : (
                 <span className="flex items-center gap-1 text-muted-foreground">
                   <Clock className="h-4 w-4" />
-                  Terminé le {new Date(poll.endTime).toLocaleDateString("fr-FR")}
+                  Terminé le {new Date(poll.end_time).toLocaleDateString("fr-FR")}
                 </span>
               )}
               <span className="flex items-center gap-1">
@@ -77,10 +92,10 @@ function PollMiniCard({ poll, onDelete }: { poll: Poll; onDelete: () => void }) 
               </div>
             )}
 
-            {!isEnded && (
+            {!isEnded && optionsWithStats.length > 0 && (
               <div className="mt-3 space-y-1">
                 <p className="text-xs text-muted-foreground">Aperçu rapide :</p>
-                {poll.options.slice(0, 2).map((opt) => (
+                {optionsWithStats.slice(0, 2).map((opt) => (
                   <div key={opt.index} className="flex items-center gap-2">
                     <div className="flex-1 h-2 bg-muted rounded-full overflow-hidden">
                       <div
@@ -134,36 +149,28 @@ function PollMiniCard({ poll, onDelete }: { poll: Poll; onDelete: () => void }) 
 }
 
 export default function MyPollsPage() {
-  const [polls, setPolls] = useState<Poll[]>([])
-  const [isLoading, setIsLoading] = useState(true)
+  const { myPolls, fetchMyPolls, isLoading } = usePollStore()
   const [filter, setFilter] = useState<"all" | "active" | "ended">("all")
   const [isModalOpen, setIsModalOpen] = useState(false)
 
   const loadPolls = async () => {
-    setIsLoading(true)
-    try {
-      const data = await pollsApi.getMyPolls()
-      setPolls(data)
-    } catch (error) {
-      console.error("Error loading polls:", error)
-    } finally {
-      setIsLoading(false)
-    }
+    await fetchMyPolls()
   }
 
   useEffect(() => {
     loadPolls()
   }, [])
 
-  const filteredPolls = polls.filter((poll) => {
+  const filteredPolls = myPolls.filter((poll) => {
+    const isEnded = poll.status === "ended" || new Date(poll.end_time) <= new Date()
     if (filter === "all") return true
-    if (filter === "active") return poll.status === "active"
-    if (filter === "ended") return poll.status === "ended"
+    if (filter === "active") return !isEnded && poll.status === "active"
+    if (filter === "ended") return isEnded || poll.status === "ended"
     return true
   })
 
-  const activePollsCount = polls.filter((p) => p.status === "active").length
-  const endedPollsCount = polls.filter((p) => p.status === "ended").length
+  const activePollsCount = myPolls.filter((p) => p.status === "active" && new Date(p.end_time) > new Date()).length
+  const endedPollsCount = myPolls.filter((p) => p.status === "ended" || new Date(p.end_time) <= new Date()).length
 
   return (
     <div className="space-y-6">
@@ -177,7 +184,7 @@ export default function MyPollsPage() {
           </Button>
           <div>
             <h1 className="text-2xl font-bold">Mes Sondages</h1>
-            <p className="text-muted-foreground text-sm">{polls.length} sondages au total</p>
+            <p className="text-muted-foreground text-sm">{myPolls.length} sondages au total</p>
           </div>
         </div>
         <Button
@@ -192,7 +199,7 @@ export default function MyPollsPage() {
       {/* Filters */}
       <Tabs value={filter} onValueChange={(v) => setFilter(v as typeof filter)}>
         <TabsList>
-          <TabsTrigger value="all">Tous ({polls.length})</TabsTrigger>
+          <TabsTrigger value="all">Tous ({myPolls.length})</TabsTrigger>
           <TabsTrigger value="active">Actifs ({activePollsCount})</TabsTrigger>
           <TabsTrigger value="ended">Terminés ({endedPollsCount})</TabsTrigger>
         </TabsList>

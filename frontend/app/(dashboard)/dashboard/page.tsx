@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Button } from "@/components/ui/button"
+import { Input } from "@/components/ui/input"
 import { PollCard } from "@/components/polls/poll-card"
 import { GroupCard } from "@/components/groups/group-card"
 import { CreatePollModal } from "@/components/polls/create-poll-modal"
@@ -10,39 +11,36 @@ import { CreateGroupModal } from "@/components/groups/create-group-modal"
 import { PollCardSkeleton } from "@/components/polls/poll-card-skeleton"
 import { usePollStore } from "@/store/poll-store"
 import { useGroupStore } from "@/store/group-store"
-import { pollsApi, groupsApi } from "@/lib/api"
-import { Plus, Vote, Users } from "lucide-react"
+import { Plus, Vote, Users, Search, RefreshCw } from "lucide-react"
 
 export default function DashboardPage() {
   const [activeTab, setActiveTab] = useState("polls")
   const [isPollModalOpen, setIsPollModalOpen] = useState(false)
   const [isGroupModalOpen, setIsGroupModalOpen] = useState(false)
+  const [searchQuery, setSearchQuery] = useState("")
 
-  const { polls, setPolls, isLoading: pollsLoading, setLoading: setPollsLoading } = usePollStore()
+  const { polls, fetchPublicPolls, isLoading: pollsLoading } = usePollStore()
   const { groups, setGroups, isLoading: groupsLoading, setLoading: setGroupsLoading } = useGroupStore()
 
   useEffect(() => {
-    loadPolls()
+    fetchPublicPolls({ status: "active" })
     loadGroups()
   }, [])
 
-  const loadPolls = async () => {
-    setPollsLoading(true)
-    try {
-      const data = await pollsApi.getPublicPolls()
-      setPolls(data)
-    } catch (error) {
-      console.error("Error loading polls:", error)
-    } finally {
-      setPollsLoading(false)
-    }
+  const handleSearch = () => {
+    fetchPublicPolls({ status: "active", search: searchQuery })
+  }
+
+  const handleRefresh = () => {
+    setSearchQuery("")
+    fetchPublicPolls({ status: "active" })
   }
 
   const loadGroups = async () => {
     setGroupsLoading(true)
     try {
-      const data = await groupsApi.getPublicGroups()
-      setGroups(data)
+      // TODO: Implement when groups are dynamic
+      setGroups([])
     } catch (error) {
       console.error("Error loading groups:", error)
     } finally {
@@ -77,6 +75,23 @@ export default function DashboardPage() {
         </div>
 
         <TabsContent value="polls" className="space-y-4 mt-0">
+          {/* Search bar */}
+          <div className="flex gap-2">
+            <div className="relative flex-1">
+              <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+              <Input
+                placeholder="Rechercher un sondage..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                onKeyDown={(e) => e.key === "Enter" && handleSearch()}
+                className="pl-10"
+              />
+            </div>
+            <Button variant="outline" size="icon" onClick={handleRefresh}>
+              <RefreshCw className="h-4 w-4" />
+            </Button>
+          </div>
+
           {pollsLoading ? (
             <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-1 xl:grid-cols-2">
               {[1, 2, 3].map((i) => (
@@ -99,7 +114,7 @@ export default function DashboardPage() {
           ) : (
             <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-1 xl:grid-cols-2">
               {polls.map((poll) => (
-                <PollCard key={poll.id} poll={poll} onVote={loadPolls} />
+                <PollCard key={poll.id} poll={poll} onVote={() => fetchPublicPolls({ status: "active" })} />
               ))}
             </div>
           )}
@@ -135,7 +150,7 @@ export default function DashboardPage() {
         </TabsContent>
       </Tabs>
 
-      <CreatePollModal open={isPollModalOpen} onOpenChange={setIsPollModalOpen} onSuccess={loadPolls} />
+      <CreatePollModal open={isPollModalOpen} onOpenChange={setIsPollModalOpen} onSuccess={() => fetchPublicPolls({ status: "active" })} />
 
       <CreateGroupModal open={isGroupModalOpen} onOpenChange={setIsGroupModalOpen} onSuccess={loadGroups} />
     </div>

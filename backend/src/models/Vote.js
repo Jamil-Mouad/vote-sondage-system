@@ -36,6 +36,42 @@ const Vote = {
     });
     return distribution;
   },
+
+  findPollsByUser: async (userId) => {
+    const [rows] = await pool.execute(
+      `SELECT v.*, p.question, p.description, p.options, p.end_time, p.status, p.is_public, p.created_by, p.group_id, p.created_at
+       FROM votes v 
+       JOIN polls p ON v.poll_id = p.id 
+       WHERE v.user_id = ? 
+       ORDER BY v.voted_at DESC`,
+      [userId]
+    );
+    return rows;
+  },
+
+  getVotersList: async (pollId) => {
+    const [rows] = await pool.execute(
+      `SELECT v.option_selected, v.voted_at, u.id, u.username, u.email, u.avatar_url
+       FROM votes v 
+       JOIN users u ON v.user_id = u.id 
+       WHERE v.poll_id = ? 
+       ORDER BY v.voted_at DESC`,
+      [pollId]
+    );
+    return rows;
+  },
+
+  getVotesOverTime: async (pollId) => {
+    const [rows] = await pool.execute(
+      `SELECT DATE(voted_at) as date, COUNT(*) as count 
+       FROM votes 
+       WHERE poll_id = ? 
+       GROUP BY DATE(voted_at) 
+       ORDER BY date ASC`,
+      [pollId]
+    );
+    return rows;
+  },
 };
 
 module.exports = Vote;
