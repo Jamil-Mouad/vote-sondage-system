@@ -1,6 +1,9 @@
 const Group = require('../models/Group');
 const GroupMember = require('../models/GroupMember');
 const Poll = require('../models/Poll');
+const Notification = require('../models/Notification');
+const Vote = require('../models/Vote');
+const { calculateResults } = require('../services/pollService');
 const { success, error } = require('../utils/responseHandler');
 const { notifyGroup } = require('../services/socketService');
 
@@ -28,7 +31,7 @@ const listPublicGroups = async (req, res) => {
     let groups = await Group.findPublic(filters);
 
     groups = await Promise.all(groups.map(async group => {
-      const activePolls = await Poll.findByGroupAndStatus(group.id, 'active'); // Assuming this function exists
+      const activePolls = await Poll.findByGroup(group.id, { status: 'active' });
       let membershipStatus = 'none';
       if (req.user) {
         const member = await GroupMember.findByGroupAndUser(group.id, req.user.id);
@@ -101,6 +104,15 @@ const requestToJoinGroup = async (req, res) => {
     }
 
     await GroupMember.addMember(id, userId, 'member', 'pending');
+
+    // Create notification for group admin
+    await Notification.create({
+      userId: group.created_by,
+      title: 'Nouvelle demande d\'adhésion',
+      message: `${req.user.username} souhaite rejoindre votre groupe "${group.name}".`,
+      type: 'group_request',
+      link: `/dashboard/groups/${id}`
+    });
 
     success(res, null, 'Request to join group sent successfully.');
   } catch (err) {
@@ -176,11 +188,28 @@ const handleJoinRequest = async (req, res) => {
 
     if (action === 'approve') {
       await GroupMember.updateStatus(requestId, 'approved');
+
       // Notify the user who joined
-      // notifyGroup(id, 'group:member-joined', { userId: targetMember.user_id, status: 'approved' }); // Assuming group:member-joined is for a specific user
+      await Notification.create({
+        userId: targetMember.user_id,
+        title: 'Demande acceptée',
+        message: `Votre demande pour rejoindre le groupe "${group.name}" a été acceptée.`,
+        type: 'join_approved',
+        link: `/dashboard/groups/${id}`
+      });
+
       success(res, null, 'Group join request approved.');
     } else if (action === 'reject') {
-      await GroupMember.removeMember(id, targetMember.user_id); // Remove the pending member
+      await GroupMember.removeMember(id, targetMember.user_id);
+
+      // Notify the user who was rejected
+      await Notification.create({
+        userId: targetMember.user_id,
+        title: 'Demande refusée',
+        message: `Votre demande pour rejoindre le groupe "${group.name}" a été refusée.`,
+        type: 'join_rejected'
+      });
+
       success(res, null, 'Group join request rejected.');
     } else {
       return error(res, "Invalid action. Must be 'approve' or 'reject'.", 400, 'INVALID_ACTION');
@@ -228,7 +257,43 @@ const getGroupPolls = async (req, res) => {
       return error(res, 'Forbidden: You are not an approved member of this group.', 403, 'GROUP_ACCESS_DENIED');
     }
 
-    const polls = await Poll.findByGroup(id); // Assuming findByGroup returns polls for a group
+    let polls = await Poll.findByGroup(id);
+
+    // For each poll, include totalVotes, hasVoted, and myVote
+    polls = await Promise.all(polls.map(async poll => {
+      const totalVotes = await Vote.countByPoll(poll.id);
+      let hasVoted = false;
+      let myVote = null;
+
+      if (req.user) {
+        const userVote = await Vote.findByPollAndUser(poll.id, req.user.id);
+        if (userVote) {
+          hasVoted = true;
+          myVote = userVote.option_selected;
+        }
+      }
+
+      // Parse options
+      if (typeof poll.options === 'string') {
+        try {
+          poll.options = JSON.parse(poll.options);
+          if (typeof poll.options === 'string') poll.options = JSON.parse(poll.options);
+        } catch (e) {
+          console.error("Error parsing options", e);
+        }
+      }
+
+      // Get results if user has voted or poll ended
+      let results = null;
+      const isEnded = new Date(poll.end_time) <= new Date() || poll.status === 'ended';
+      const isCreator = poll.created_by === userId;
+
+      if (hasVoted || isEnded || isCreator) {
+        results = await calculateResults(poll.id);
+      }
+
+      return { ...poll, totalVotes, hasVoted, myVote, results };
+    }));
 
     success(res, polls, 'Group polls retrieved successfully.');
   } catch (err) {

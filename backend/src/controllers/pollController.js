@@ -27,15 +27,15 @@ const createPoll = async (req, res) => {
 
     if (groupId) {
       const groupMember = await GroupMember.findByGroupAndUser(groupId, createdBy);
-      if (!groupMember || groupMember.status !== 'approved') {
-        return error(res, 'User is not an approved member of the group.', 403, 'GROUP_MEMBERSHIP_REQUIRED');
+      if (!groupMember || groupMember.status !== 'approved' || groupMember.role !== 'admin') {
+        return error(res, 'Only group admins can create polls in this group.', 403, 'GROUP_ADMIN_REQUIRED');
       }
     }
 
     const pollId = await Poll.create({
       question,
       description,
-      options: JSON.stringify(options.map(opt => opt.text)), // Store options as JSON string of texts
+      options: options.map(opt => opt.text), // Pass raw array of strings
       endTime: new Date(endTime),
       isPublic: isPublic || false,
       createdBy,
@@ -68,7 +68,7 @@ const listPublicPolls = async (req, res) => {
       const totalVotes = await Vote.countByPoll(poll.id);
       let hasVoted = false;
       let myVote = null;
-      
+
       if (req.user) { // Check if user is authenticated
         const userVote = await Vote.findByPollAndUser(poll.id, req.user.id);
         if (userVote) {
@@ -76,17 +76,17 @@ const listPublicPolls = async (req, res) => {
           myVote = userVote.option_selected;
         }
       }
-      
+
       // Parse options from JSON string back to array
       poll.options = parseOptions(poll.options);
-      
+
       // Get results if user has voted or poll ended
       let results = null;
       const isEnded = new Date(poll.end_time) <= new Date() || poll.status === 'ended';
       if (hasVoted || isEnded) {
         results = await calculateResults(poll.id);
       }
-      
+
       return { ...poll, totalVotes, hasVoted, myVote, results };
     }));
 

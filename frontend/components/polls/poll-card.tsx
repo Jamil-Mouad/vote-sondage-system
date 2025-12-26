@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { Card, CardContent } from "@/components/ui/card"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Badge } from "@/components/ui/badge"
@@ -8,10 +8,9 @@ import { Button } from "@/components/ui/button"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
 import { LoginRequiredModal } from "@/components/auth/login-required-modal"
 import { useAuthStore } from "@/store/auth-store"
-import { usePollStore } from "@/store/poll-store"
+import { usePollStore, type Poll, type PollOption } from "@/store/poll-store"
 import { toast } from "sonner"
 import { useCountdown } from "@/hooks/use-countdown"
-import type { Poll } from "@/store/poll-store"
 import { cn } from "@/lib/utils"
 import { Clock, Users, MoreHorizontal, Share2, Flag, Check, Trophy } from "lucide-react"
 
@@ -26,20 +25,24 @@ export function PollCard({ poll, onVote }: PollCardProps) {
   const [isVoting, setIsVoting] = useState(false)
   const [localPoll, setLocalPoll] = useState(poll)
   const [showLoginModal, setShowLoginModal] = useState(false)
-  const countdown = useCountdown(poll.end_time)
+  const countdown = useCountdown(poll.endTime)
+
+  // Sync state with props when poll changes (crucial for refresh/store updates)
+  useEffect(() => {
+    setLocalPoll(poll)
+  }, [poll])
 
   const isEnded = poll.status === "ended" || countdown.isExpired
-  const isCreator = user?.id !== undefined && Number(user.id) === poll.created_by
+  const isCreator = user?.id !== undefined && Number(user.id) === poll.createdBy
   const canVote = !isEnded && !localPoll.hasVoted && !isCreator
 
   // Parse results for display
-  const optionsWithStats = localPoll.options.map((optionText, index) => {
-    const result = localPoll.results?.results?.find(r => r.option === optionText)
+  const optionsWithStats = localPoll.options.map((option) => {
+    const result = localPoll.results?.results?.find(r => r.text === option.text)
     return {
-      index: index + 1,
-      text: optionText,
-      votes: result?.votes || 0,
-      percentage: result?.percentage || 0,
+      ...option,
+      votes: result?.votes || option.votes || 0,
+      percentage: result?.percentage || option.percentage || 0,
     }
   })
 
@@ -85,12 +88,13 @@ export function PollCard({ poll, onVote }: PollCardProps) {
       if (success) {
         // Calculate new results locally
         const newTotalVotes = localPoll.totalVotes + 1
-        const newResults = localPoll.options.map((optionText, idx) => {
-          const currentResult = localPoll.results?.results?.find(r => r.option === optionText)
+        const newResults: PollOption[] = localPoll.options.map((option) => {
+          const currentResult = localPoll.results?.results?.find(r => r.text === option.text)
           const currentVotes = currentResult?.votes || 0
-          const newVotes = (idx + 1) === optionIndex ? currentVotes + 1 : currentVotes
+          const newVotes = option.index === optionIndex ? currentVotes + 1 : currentVotes
           return {
-            option: optionText,
+            index: option.index,
+            text: option.text,
             votes: newVotes,
             percentage: newTotalVotes > 0 ? parseFloat(((newVotes / newTotalVotes) * 100).toFixed(2)) : 0
           }
@@ -133,9 +137,9 @@ export function PollCard({ poll, onVote }: PollCardProps) {
   }
 
   const winningOption = getWinningOption()
-  
+
   // Build avatar URL
-  const avatarUrl = poll.creatorAvatar 
+  const avatarUrl = poll.creatorAvatar
     ? `${process.env.NEXT_PUBLIC_API_URL?.replace('/api', '') || 'http://localhost:5000'}${poll.creatorAvatar}`
     : undefined
   const creatorName = poll.creatorName || "Utilisateur"
@@ -154,7 +158,7 @@ export function PollCard({ poll, onVote }: PollCardProps) {
             </Avatar>
             <div>
               <p className="font-medium text-sm">{creatorName}</p>
-              <p className="text-xs text-muted-foreground">{formatTimeAgo(poll.created_at)}</p>
+              <p className="text-xs text-muted-foreground">{formatTimeAgo(poll.createdAt)}</p>
             </div>
           </div>
 
@@ -211,7 +215,7 @@ export function PollCard({ poll, onVote }: PollCardProps) {
         {/* Options */}
         <div className="px-4 pb-4 space-y-2">
           {optionsWithStats.map((option) => {
-            const isMyVote = localPoll.myVote === option.index
+            const isMyVote = localPoll.myVote !== null && Number(localPoll.myVote) === Number(option.index)
             const isWinner = isEnded && winningOption?.index === option.index
 
             return (
@@ -220,20 +224,21 @@ export function PollCard({ poll, onVote }: PollCardProps) {
                 onClick={() => handleVote(option.index)}
                 disabled={!canVote || isVoting}
                 className={cn(
-                  "w-full relative overflow-hidden rounded-lg border-2 p-3 text-left transition-all",
-                  canVote && "hover:border-[var(--primary)] hover:bg-[var(--primary-50)] cursor-pointer",
+                  "w-full relative overflow-hidden rounded-lg border-2 p-3 text-left transition-all duration-300",
+                  canVote && "hover:border-primary/50 hover:bg-primary/5 cursor-pointer active:scale-[0.98]",
                   !canVote && "cursor-default",
-                  isMyVote && "border-green-500 bg-green-100 dark:bg-green-900/50",
-                  isWinner && !isMyVote && "border-amber-500 bg-amber-50 dark:bg-amber-950/20",
-                  !isMyVote && !isWinner && "border-border",
+                  isMyVote ? "border-green-500 bg-green-500/10 shadow-md ring-1 ring-green-500/20" : "border-border",
+                  isWinner && !isMyVote && "border-amber-500/50 bg-amber-500/5",
                 )}
               >
                 {/* Progress bar background */}
                 {showResults && (
                   <div
                     className={cn(
-                      "absolute inset-0 transition-all duration-500",
-                      isMyVote ? "bg-green-200 dark:bg-green-800/50" : "bg-muted/50",
+                      "absolute inset-0 transition-all duration-700 ease-in-out",
+                      isMyVote
+                        ? "bg-green-500/20 dark:bg-green-500/15"
+                        : "bg-muted/30"
                     )}
                     style={{ width: `${option.percentage}%` }}
                   />
@@ -241,33 +246,44 @@ export function PollCard({ poll, onVote }: PollCardProps) {
 
                 {/* Content */}
                 <div className="relative flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    {/* Show radio circle only if not voted and not showing results */}
-                    {!showResults && !localPoll.hasVoted && (
-                      <div className={cn("h-4 w-4 rounded-full border-2", "border-muted-foreground")} />
-                    )}
-                    {/* Show checkmark for voted option */}
-                    {isMyVote && (
-                      <div className="h-5 w-5 rounded-full bg-green-500 flex items-center justify-center">
-                        <Check className="h-3 w-3 text-white" />
-                      </div>
-                    )}
-                    {/* Show trophy for winner if not my vote */}
-                    {isWinner && !isMyVote && <Trophy className="h-4 w-4 text-amber-600 dark:text-amber-400" />}
+                  <div className="flex items-center gap-3">
+                    {/* Visual indicator of selection */}
+                    <div className={cn(
+                      "h-5 w-5 rounded-full border-2 flex items-center justify-center transition-all duration-300",
+                      isMyVote
+                        ? "bg-green-500 border-green-500 scale-110 shadow-sm"
+                        : "border-muted-foreground/30",
+                      showResults && !isMyVote && "opacity-50"
+                    )}>
+                      {isMyVote ? (
+                        <Check className="h-3 w-3 text-white stroke-[3]" />
+                      ) : !showResults && (
+                        <div className="h-1.5 w-1.5 rounded-full bg-transparent" />
+                      )}
+                    </div>
+
                     <span className={cn(
-                      "font-medium",
-                      isMyVote ? "text-green-700 dark:text-green-300" : "text-foreground"
+                      "font-semibold transition-colors duration-300",
+                      isMyVote ? "text-green-700 dark:text-green-300" : "text-foreground/90",
+                      isWinner && !isMyVote && "text-amber-700 dark:text-amber-400"
                     )}>
                       {option.text}
+                      {isWinner && !isMyVote && <Trophy className="inline-block h-3.5 w-3.5 ml-2 text-amber-500 animate-bounce" />}
                     </span>
                   </div>
+
                   {showResults && (
-                    <span className={cn(
-                      "font-bold text-sm",
-                      isMyVote ? "text-green-700 dark:text-green-300" : "text-foreground"
-                    )}>
-                      {option.percentage}%
-                    </span>
+                    <div className="flex flex-col items-end">
+                      <span className={cn(
+                        "font-bold text-sm tabular-nums",
+                        isMyVote ? "text-green-600 dark:text-green-400" : "text-foreground/70"
+                      )}>
+                        {option.percentage}%
+                      </span>
+                      <span className="text-[10px] text-muted-foreground/60 font-medium">
+                        {option.votes} {option.votes > 1 ? 'votes' : 'vote'}
+                      </span>
+                    </div>
                   )}
                 </div>
               </button>

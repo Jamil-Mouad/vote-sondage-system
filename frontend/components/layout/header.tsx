@@ -1,8 +1,9 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import Link from "next/link"
 import { useAuthStore } from "@/store/auth-store"
+import { useNotificationStore } from "@/store/notification-store"
 import { ThemeToggle } from "@/components/ui/theme-toggle"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Button } from "@/components/ui/button"
@@ -17,43 +18,26 @@ import {
 } from "@/components/ui/dropdown-menu"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
 import { Badge } from "@/components/ui/badge"
-import { BarChart3, Menu, Search, Bell, User, Settings, LogOut, Vote, Users, CheckCircle } from "lucide-react"
+import { BarChart3, Menu, Search, Bell, User, Settings, LogOut, Vote, Users, CheckCircle, ExternalLink } from "lucide-react"
+import { formatDistanceToNow } from "date-fns"
+import { fr } from "date-fns/locale"
 
 interface HeaderProps {
   onMenuClick: () => void
 }
 
-const mockNotifications = [
-  {
-    id: 1,
-    type: "vote",
-    title: 'Nouveau vote sur "Quel framework..."',
-    description: "125 → 126 votes",
-    time: "Il y a 2min",
-    read: false,
-  },
-  {
-    id: 2,
-    type: "ended",
-    title: 'Sondage terminé : "Meilleur langage"',
-    description: "Résultat : Node.js (42%)",
-    time: "Il y a 1h",
-    read: false,
-  },
-  {
-    id: 3,
-    type: "group",
-    title: "Demande acceptée : Club de Lecture",
-    description: "Vous êtes maintenant membre",
-    time: "Il y a 3h",
-    read: true,
-  },
-]
-
 export function Header({ onMenuClick }: HeaderProps) {
   const { user, logout } = useAuthStore()
+  const { notifications, fetchNotifications, markAsRead, markAllAsRead } = useNotificationStore()
   const [searchQuery, setSearchQuery] = useState("")
-  const unreadCount = mockNotifications.filter((n) => !n.read).length
+
+  useEffect(() => {
+    if (user) {
+      fetchNotifications()
+    }
+  }, [user])
+
+  const unreadCount = notifications.filter((n) => !n.isRead).length
 
   const handleLogout = () => {
     logout()
@@ -64,9 +48,11 @@ export function Header({ onMenuClick }: HeaderProps) {
     switch (type) {
       case "vote":
         return <Vote className="h-4 w-4" style={{ color: "var(--primary)" }} />
-      case "ended":
+      case "poll_ended":
         return <CheckCircle className="h-4 w-4 text-red-500" />
-      case "group":
+      case "group_request":
+        return <Users className="h-4 w-4 text-blue-500" />
+      case "join_approved":
         return <Users className="h-4 w-4 text-green-500" />
       default:
         return <Bell className="h-4 w-4" />
@@ -136,28 +122,47 @@ export function Header({ onMenuClick }: HeaderProps) {
             <PopoverContent align="end" className="w-80 p-0">
               <div className="flex items-center justify-between p-4 border-b">
                 <h3 className="font-semibold">Notifications</h3>
-                <Button variant="ghost" size="sm" className="text-xs">
-                  Tout marquer lu
-                </Button>
+                {unreadCount > 0 && (
+                  <Button variant="ghost" size="sm" className="text-xs" onClick={markAllAsRead}>
+                    Tout marquer lu
+                  </Button>
+                )}
               </div>
               <div className="max-h-80 overflow-y-auto">
-                {mockNotifications.map((notification) => (
-                  <div
-                    key={notification.id}
-                    className={`p-4 border-b last:border-0 hover:bg-muted/50 cursor-pointer ${
-                      !notification.read ? "bg-primary/5" : ""
-                    }`}
-                  >
-                    <div className="flex gap-3">
-                      <div className="flex-shrink-0 mt-0.5">{getNotificationIcon(notification.type)}</div>
-                      <div className="flex-1 min-w-0">
-                        <p className="text-sm font-medium truncate">{notification.title}</p>
-                        <p className="text-xs text-muted-foreground">{notification.description}</p>
-                        <p className="text-xs text-muted-foreground mt-1">{notification.time}</p>
+                {notifications.length === 0 ? (
+                  <div className="p-8 text-center text-muted-foreground">
+                    <Bell className="h-8 w-8 mx-auto mb-2 opacity-20" />
+                    <p className="text-sm">Aucune notification</p>
+                  </div>
+                ) : (
+                  notifications.map((notification) => (
+                    <div
+                      key={notification.id}
+                      className={`p-4 border-b last:border-0 hover:bg-muted/50 cursor-pointer ${!notification.isRead ? "bg-primary/5" : ""
+                        }`}
+                      onClick={() => {
+                        markAsRead(notification.id)
+                        if (notification.link) window.location.href = notification.link
+                      }}
+                    >
+                      <div className="flex gap-3">
+                        <div className="flex-shrink-0 mt-0.5">{getNotificationIcon(notification.type)}</div>
+                        <div className="flex-1 min-w-0">
+                          <p className="text-sm font-medium truncate">{notification.title}</p>
+                          <p className="text-xs text-muted-foreground line-clamp-2">{notification.message}</p>
+                          <p className="text-[10px] text-muted-foreground mt-1">
+                            {formatDistanceToNow(new Date(notification.createdAt), { addSuffix: true, locale: fr })}
+                          </p>
+                        </div>
                       </div>
                     </div>
-                  </div>
-                ))}
+                  ))
+                )}
+              </div>
+              <div className="p-2 border-t text-center">
+                <Button variant="ghost" size="sm" className="w-full text-xs" asChild>
+                  <Link href="/dashboard/notifications">Voir toutes les notifications</Link>
+                </Button>
               </div>
             </PopoverContent>
           </Popover>
@@ -172,9 +177,9 @@ export function Header({ onMenuClick }: HeaderProps) {
             <DropdownMenuTrigger asChild>
               <Button variant="ghost" size="icon" className="rounded-full">
                 <Avatar className="h-8 w-8">
-                  <AvatarImage 
-                    src={user?.avatar ? `${process.env.NEXT_PUBLIC_API_URL?.replace('/api', '') || 'http://localhost:5000'}${user.avatar}` : undefined} 
-                    alt={user?.name} 
+                  <AvatarImage
+                    src={user?.avatar ? `${process.env.NEXT_PUBLIC_API_URL?.replace('/api', '') || 'http://localhost:5000'}${user.avatar}` : undefined}
+                    alt={user?.name}
                   />
                   <AvatarFallback style={{ background: "var(--primary)", color: "white" }}>
                     {user?.name?.slice(0, 2).toUpperCase() || "U"}

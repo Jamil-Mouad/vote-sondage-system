@@ -18,6 +18,7 @@ const pollRoutes = require('./routes/pollRoutes');
 const voteRoutes = require('./routes/voteRoutes');
 const groupRoutes = require('./routes/groupRoutes');
 const supportRoutes = require('./routes/supportRoutes');
+const notificationRoutes = require('./routes/notificationRoutes');
 
 const app = express();
 const server = http.createServer(app);
@@ -65,6 +66,7 @@ app.use('/api/polls', pollRoutes);
 app.use('/api/votes', voteRoutes);
 app.use('/api/groups', groupRoutes);
 app.use('/api/support', supportRoutes);
+app.use('/api/notifications', notificationRoutes);
 
 // Health Check Route
 app.get('/api/health', (req, res) => {

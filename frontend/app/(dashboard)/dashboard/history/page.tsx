@@ -6,8 +6,7 @@ import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { pollsApi } from "@/lib/api"
-import type { Poll } from "@/store/poll-store"
+import { usePollStore, type Poll, type PollOption } from "@/store/poll-store"
 import { useCountdown } from "@/hooks/use-countdown"
 import { cn } from "@/lib/utils"
 import { ArrowLeft, Clock, Check, Trophy, Users, Loader2, History, BarChart3 } from "lucide-react"
@@ -16,8 +15,10 @@ function HistoryPollCard({ poll }: { poll: Poll }) {
   const countdown = useCountdown(poll.endTime)
   const isEnded = poll.status === "ended" || countdown.isExpired
 
-  const myVoteOption = poll.options.find((o) => o.index === poll.myVote)
-  const winningOption = isEnded ? poll.options.reduce((prev, curr) => (prev.votes > curr.votes ? prev : curr)) : null
+  const myVoteOption = poll.options.find((o: PollOption) => o.index === poll.myVote)
+  const winningOption = isEnded && poll.options.length > 0
+    ? poll.options.reduce((prev: PollOption, curr: PollOption) => (prev.votes > curr.votes ? prev : curr))
+    : null
 
   return (
     <Card className="hover:shadow-md transition-shadow">
@@ -101,27 +102,15 @@ function HistoryPollCard({ poll }: { poll: Poll }) {
 }
 
 export default function HistoryPage() {
-  const [history, setHistory] = useState<{ active: Poll[]; ended: Poll[] }>({ active: [], ended: [] })
-  const [isLoading, setIsLoading] = useState(true)
+  const { history, fetchHistory, isLoading } = usePollStore()
   const [activeTab, setActiveTab] = useState("all")
 
   useEffect(() => {
-    const loadHistory = async () => {
-      setIsLoading(true)
-      try {
-        const data = await pollsApi.getHistory()
-        setHistory(data)
-      } catch (error) {
-        console.error("Error loading history:", error)
-      } finally {
-        setIsLoading(false)
-      }
-    }
-    loadHistory()
+    fetchHistory()
   }, [])
 
-  const allPolls = [...history.active, ...history.ended]
-  const displayedPolls = activeTab === "all" ? allPolls : activeTab === "active" ? history.active : history.ended
+  const allPolls = [...history.activePolls, ...history.endedPolls]
+  const displayedPolls = activeTab === "all" ? allPolls : activeTab === "active" ? history.activePolls : history.endedPolls
 
   return (
     <div className="space-y-6">
@@ -142,8 +131,8 @@ export default function HistoryPage() {
       <Tabs value={activeTab} onValueChange={setActiveTab}>
         <TabsList>
           <TabsTrigger value="all">Tous ({allPolls.length})</TabsTrigger>
-          <TabsTrigger value="active">Actifs ({history.active.length})</TabsTrigger>
-          <TabsTrigger value="ended">Terminés ({history.ended.length})</TabsTrigger>
+          <TabsTrigger value="active">Actifs ({history.activePolls.length})</TabsTrigger>
+          <TabsTrigger value="ended">Terminés ({history.endedPolls.length})</TabsTrigger>
         </TabsList>
       </Tabs>
 
@@ -163,7 +152,7 @@ export default function HistoryPage() {
         </div>
       ) : (
         <div className="space-y-4">
-          {displayedPolls.map((poll) => (
+          {displayedPolls.map((poll: Poll) => (
             <HistoryPollCard key={poll.id} poll={poll} />
           ))}
         </div>

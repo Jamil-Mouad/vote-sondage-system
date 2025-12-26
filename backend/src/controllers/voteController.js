@@ -40,7 +40,7 @@ const vote = async (req, res) => {
     const updatedResults = await calculateResults(pollId);
     emitVoteUpdate(pollId, updatedResults); // Emit Socket.IO event
 
-    success(res, null, 'Vote cast successfully.', 201);
+    success(res, { results: updatedResults }, 'Vote cast successfully.', 201);
   } catch (err) {
     error(res, err.message, 500, 'VOTE_FAILED');
   }

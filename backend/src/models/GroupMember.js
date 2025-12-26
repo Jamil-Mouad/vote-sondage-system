@@ -9,6 +9,11 @@ const GroupMember = {
     return result.insertId;
   },
 
+  findById: async (id) => {
+    const [rows] = await pool.execute('SELECT * FROM group_members WHERE id = ?', [id]);
+    return rows[0];
+  },
+
   findByGroupAndUser: async (groupId, userId) => {
     const [rows] = await pool.execute(
       'SELECT * FROM group_members WHERE group_id = ? AND user_id = ?',
@@ -41,7 +46,7 @@ const GroupMember = {
 
   getPendingRequests: async (groupId) => {
     const [rows] = await pool.execute(
-      `SELECT gm.id, gm.user_id, u.username, u.email, u.avatar_url, gm.created_at 
+      `SELECT gm.id, gm.user_id, u.username, u.email, u.avatar_url, gm.joined_at 
        FROM group_members gm 
        JOIN users u ON gm.user_id = u.id 
        WHERE gm.group_id = ? AND gm.status = 'pending'`,

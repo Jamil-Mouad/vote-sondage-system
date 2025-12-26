@@ -19,33 +19,33 @@ import { useCountdown } from "@/hooks/use-countdown"
 export default function PollVotePage({ params }: { params: Promise<{ id: string }> }) {
   const resolvedParams = use(params)
   const router = useRouter()
-  const { polls, setPolls } = usePollStore()
-  const [poll, setPoll] = useState<Poll | null>(null)
+  const { currentPoll: poll, fetchPollById, vote, isLoading } = usePollStore()
   const [selectedOption, setSelectedOption] = useState<number | null>(null)
   const [isVoting, setIsVoting] = useState(false)
-  const [isLoading, setIsLoading] = useState(true)
 
   const countdown = useCountdown(poll?.endTime || new Date())
 
   useEffect(() => {
-    loadPoll()
+    if (resolvedParams.id) {
+      loadPoll()
+    }
   }, [resolvedParams.id])
 
   const loadPoll = async () => {
-    setIsLoading(true)
     try {
       const pollId = Number.parseInt(resolvedParams.id)
-      const data = await pollsApi.getPoll(pollId)
-      setPoll(data)
+      const data = await fetchPollById(pollId)
+      if (!data) {
+        toast.error("Sondage non trouvé")
+        router.push("/dashboard")
+      }
     } catch (error) {
-      toast.error("Sondage non trouvé")
+      toast.error("Erreur lors du chargement du sondage")
       router.push("/dashboard")
-    } finally {
-      setIsLoading(false)
     }
   }
 
-  if (isLoading) {
+  if (isLoading && !poll) {
     return (
       <div className="flex items-center justify-center py-12">
         <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
@@ -73,11 +73,7 @@ export default function PollVotePage({ params }: { params: Promise<{ id: string 
 
     setIsVoting(true)
     try {
-      const updatedPoll = await pollsApi.vote(poll.id, selectedOption)
-      setPoll(updatedPoll)
-      // Update store
-      const updatedPolls = polls.map((p) => (p.id === poll.id ? updatedPoll : p))
-      setPolls(updatedPolls)
+      await vote(poll.id, selectedOption)
       toast.success("Vote enregistré avec succès!")
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "Erreur lors du vote")
@@ -105,11 +101,11 @@ export default function PollVotePage({ params }: { params: Promise<{ id: string 
           <div className="flex items-start justify-between">
             <div className="flex items-center gap-3">
               <Avatar>
-                <AvatarImage src={poll.createdBy?.avatarUrl || "/placeholder.svg?height=40&width=40&query=avatar"} />
-                <AvatarFallback>{poll.createdBy?.username?.charAt(0).toUpperCase() || "U"}</AvatarFallback>
+                <AvatarImage src={poll.creatorAvatar || "/placeholder.svg?height=40&width=40&query=avatar"} />
+                <AvatarFallback>{poll.creatorName?.charAt(0).toUpperCase() || "U"}</AvatarFallback>
               </Avatar>
               <div>
-                <p className="font-medium">@{poll.createdBy?.username || "Utilisateur"}</p>
+                <p className="font-medium">@{poll.creatorName || "Utilisateur"}</p>
                 <p className="text-sm text-muted-foreground">
                   Créé le {new Date(poll.createdAt).toLocaleDateString("fr-FR")}
                 </p>

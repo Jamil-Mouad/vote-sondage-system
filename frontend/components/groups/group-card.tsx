@@ -6,8 +6,7 @@ import { Card, CardContent } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { toast } from "sonner"
-import { groupsApi } from "@/lib/api"
-import type { Group } from "@/store/group-store"
+import { useGroupStore, type Group } from "@/store/group-store"
 import { Users, BarChart2, Clock, Check, Crown, Loader2 } from "lucide-react"
 
 interface GroupCardProps {
@@ -16,14 +15,17 @@ interface GroupCardProps {
 }
 
 export function GroupCard({ group, onUpdate }: GroupCardProps) {
+  const { requestToJoin } = useGroupStore()
   const [isLoading, setIsLoading] = useState(false)
 
   const handleJoin = async () => {
     setIsLoading(true)
     try {
-      await groupsApi.joinGroup(group.id)
-      toast.success("Demande d'adhésion envoyée !")
-      onUpdate?.()
+      const success = await requestToJoin(group.id)
+      if (success) {
+        toast.success("Demande d'adhésion envoyée !")
+        onUpdate?.()
+      }
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "Erreur lors de la demande")
     } finally {
@@ -94,7 +96,13 @@ export function GroupCard({ group, onUpdate }: GroupCardProps) {
 
         <div className="p-4 space-y-4">
           <div>
-            <h3 className="font-semibold text-lg">{group.name}</h3>
+            {group.membershipStatus === "approved" ? (
+              <Link href={`/dashboard/groups/${group.id}`} className="hover:text-primary transition-colors">
+                <h3 className="font-semibold text-lg">{group.name}</h3>
+              </Link>
+            ) : (
+              <h3 className="font-semibold text-lg">{group.name}</h3>
+            )}
             {group.description && (
               <p className="text-sm text-muted-foreground line-clamp-2 mt-1">{group.description}</p>
             )}
@@ -107,7 +115,7 @@ export function GroupCard({ group, onUpdate }: GroupCardProps) {
             </span>
             <span className="flex items-center gap-1">
               <BarChart2 className="h-4 w-4" />
-              {group.activePolls} sondages actifs
+              {group.activePollsCount} sondages actifs
             </span>
           </div>
 

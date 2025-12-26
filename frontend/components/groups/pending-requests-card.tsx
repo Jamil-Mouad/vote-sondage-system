@@ -7,7 +7,7 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Badge } from "@/components/ui/badge"
 import { Check, X, UserCheck, Loader2 } from "lucide-react"
 import { toast } from "sonner"
-import { groupsApi } from "@/lib/api"
+import { useGroupStore } from "@/store/group-store"
 
 interface PendingRequest {
   id: number
@@ -27,14 +27,17 @@ interface PendingRequestsCardProps {
 }
 
 export function PendingRequestsCard({ groupId, requests, onUpdate }: PendingRequestsCardProps) {
+  const { handleJoinRequest } = useGroupStore()
   const [loadingRequests, setLoadingRequests] = useState<Set<number>>(new Set())
 
   const handleApprove = async (request: PendingRequest) => {
     setLoadingRequests((prev) => new Set(prev).add(request.id))
     try {
-      await groupsApi.approveMemberRequest(groupId, request.user.id)
-      toast.success(`${request.user.username} a été ajouté au groupe !`)
-      onUpdate?.()
+      const success = await handleJoinRequest(groupId, request.id, "approve")
+      if (success) {
+        toast.success(`${request.user.username} a été ajouté au groupe !`)
+        onUpdate?.()
+      }
     } catch (error) {
       toast.error("Erreur lors de l'acceptation")
     } finally {
@@ -49,9 +52,11 @@ export function PendingRequestsCard({ groupId, requests, onUpdate }: PendingRequ
   const handleReject = async (request: PendingRequest) => {
     setLoadingRequests((prev) => new Set(prev).add(request.id))
     try {
-      await groupsApi.rejectMemberRequest(groupId, request.user.id)
-      toast.success("Demande refusée")
-      onUpdate?.()
+      const success = await handleJoinRequest(groupId, request.id, "reject")
+      if (success) {
+        toast.success("Demande refusée")
+        onUpdate?.()
+      }
     } catch (error) {
       toast.error("Erreur lors du refus")
     } finally {

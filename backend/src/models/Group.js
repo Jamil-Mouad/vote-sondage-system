@@ -11,12 +11,17 @@ const Group = {
   },
 
   findById: async (id) => {
-    const [rows] = await pool.execute('SELECT * FROM groups WHERE id = ?', [id]);
+    const [rows] = await pool.execute(
+      `SELECT g.*, 
+       (SELECT COUNT(*) FROM group_members WHERE group_id = g.id AND status = 'approved') as membersCount
+       FROM groups g WHERE g.id = ?`,
+      [id]
+    );
     return rows[0];
   },
 
   findPublic: async (filters) => {
-    let query = 'SELECT g.*, COUNT(gm.id) AS membersCount FROM groups g LEFT JOIN group_members gm ON g.id = gm.group_id WHERE g.is_public = 1';
+    let query = 'SELECT g.*, COUNT(gm.id) AS membersCount FROM groups g LEFT JOIN group_members gm ON g.id = gm.group_id AND gm.status = \'approved\' WHERE g.is_public = 1';
     const params = [];
 
     if (filters.search) {
@@ -32,12 +37,18 @@ const Group = {
 
   findByUser: async (userId) => {
     const [createdGroups] = await pool.execute(
-      'SELECT g.*, (SELECT COUNT(*) FROM group_members WHERE group_id = g.id AND status = \'pending\') AS pendingRequests FROM groups g WHERE g.created_by = ?',
+      `SELECT g.*, 'admin' as role, 'approved' as status,
+       (SELECT COUNT(*) FROM group_members WHERE group_id = g.id AND status = 'pending') AS pendingRequests,
+       (SELECT COUNT(*) FROM group_members WHERE group_id = g.id AND status = 'approved') AS membersCount
+       FROM groups g WHERE g.created_by = ?`,
       [userId]
     );
     const [joinedGroups] = await pool.execute(
-      'SELECT g.*, gm.role, gm.status FROM groups g JOIN group_members gm ON g.id = gm.group_id WHERE gm.user_id = ? AND gm.status = \'approved\'',
-      [userId]
+      `SELECT g.*, gm.role, gm.status,
+       (SELECT COUNT(*) FROM group_members WHERE group_id = g.id AND status = 'approved') AS membersCount
+       FROM groups g JOIN group_members gm ON g.id = gm.group_id 
+       WHERE gm.user_id = ? AND gm.status = 'approved' AND g.created_by != ?`,
+      [userId, userId]
     );
     return { created: createdGroups, joined: joinedGroups };
   },

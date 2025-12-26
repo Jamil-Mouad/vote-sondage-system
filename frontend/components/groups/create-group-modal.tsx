@@ -10,7 +10,7 @@ import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
 import { toast } from "sonner"
-import { groupsApi } from "@/lib/api"
+import { useGroupStore } from "@/store/group-store"
 import { Users, Loader2 } from "lucide-react"
 
 interface CreateGroupModalProps {
@@ -20,6 +20,7 @@ interface CreateGroupModalProps {
 }
 
 export function CreateGroupModal({ open, onOpenChange, onSuccess }: CreateGroupModalProps) {
+  const { createGroup } = useGroupStore()
   const [isLoading, setIsLoading] = useState(false)
   const [formData, setFormData] = useState({
     name: "",
@@ -38,22 +39,26 @@ export function CreateGroupModal({ open, onOpenChange, onSuccess }: CreateGroupM
     setIsLoading(true)
 
     try {
-      await groupsApi.createGroup({
+      const result = await createGroup({
         name: formData.name,
         description: formData.description || undefined,
         isPublic: formData.visibility === "public",
       })
 
-      toast.success("Groupe créé avec succès !")
-      onOpenChange(false)
-      onSuccess?.()
+      if (result.success) {
+        toast.success("Groupe créé avec succès !")
+        onOpenChange(false)
+        onSuccess?.()
 
-      // Reset form
-      setFormData({
-        name: "",
-        description: "",
-        visibility: "public",
-      })
+        // Reset form
+        setFormData({
+          name: "",
+          description: "",
+          visibility: "public",
+        })
+      } else {
+        toast.error(result.error || "Erreur lors de la création")
+      }
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "Erreur lors de la création")
     } finally {

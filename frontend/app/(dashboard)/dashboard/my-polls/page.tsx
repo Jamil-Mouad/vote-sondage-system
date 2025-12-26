@@ -15,7 +15,7 @@ import { toast } from "sonner"
 
 function PollMiniCard({ poll, onDelete }: { poll: Poll; onDelete: () => void }) {
   const { cancelPoll } = usePollStore()
-  const countdown = useCountdown(poll.end_time)
+  const countdown = useCountdown(poll.endTime)
   const isEnded = poll.status === "ended" || countdown.isExpired
   const [isDeleting, setIsDeleting] = useState(false)
 
@@ -37,18 +37,17 @@ function PollMiniCard({ poll, onDelete }: { poll: Poll; onDelete: () => void }) 
   }
 
   // Parse options for display
-  const optionsWithStats = poll.options.map((optionText, index) => {
-    const result = poll.results?.results?.find(r => r.option === optionText)
+  const optionsWithStats = poll.options.map((option) => {
+    const result = poll.results?.results?.find(r => r.text === option.text)
     return {
-      index: index + 1,
-      text: optionText,
-      votes: result?.votes || 0,
-      percentage: result?.percentage || 0,
+      ...option,
+      votes: result?.votes || option.votes || 0,
+      percentage: result?.percentage || option.percentage || 0,
     }
   })
 
-  const winningOption = isEnded && optionsWithStats.length > 0 
-    ? optionsWithStats.reduce((prev, curr) => (prev.votes > curr.votes ? prev : curr)) 
+  const winningOption = isEnded && optionsWithStats.length > 0
+    ? optionsWithStats.reduce((prev, curr) => (prev.votes > curr.votes ? prev : curr))
     : null
 
   return (
@@ -60,7 +59,7 @@ function PollMiniCard({ poll, onDelete }: { poll: Poll; onDelete: () => void }) 
               <Badge variant={isEnded ? "destructive" : "default"} className={!isEnded ? "bg-green-500" : ""}>
                 {isEnded ? "Terminé" : "Actif"}
               </Badge>
-              {poll.is_public ? <Badge variant="outline">Public</Badge> : <Badge variant="secondary">Privé</Badge>}
+              {poll.isPublic ? <Badge variant="outline">Public</Badge> : <Badge variant="secondary">Privé</Badge>}
             </div>
 
             <h3 className="font-semibold text-lg truncate">{poll.question}</h3>
@@ -74,7 +73,7 @@ function PollMiniCard({ poll, onDelete }: { poll: Poll; onDelete: () => void }) 
               ) : (
                 <span className="flex items-center gap-1 text-muted-foreground">
                   <Clock className="h-4 w-4" />
-                  Terminé le {new Date(poll.end_time).toLocaleDateString("fr-FR")}
+                  Terminé le {new Date(poll.endTime).toLocaleDateString("fr-FR")}
                 </span>
               )}
               <span className="flex items-center gap-1">
@@ -162,15 +161,15 @@ export default function MyPollsPage() {
   }, [])
 
   const filteredPolls = myPolls.filter((poll) => {
-    const isEnded = poll.status === "ended" || new Date(poll.end_time) <= new Date()
+    const isEnded = poll.status === "ended" || new Date(poll.endTime) <= new Date()
     if (filter === "all") return true
     if (filter === "active") return !isEnded && poll.status === "active"
     if (filter === "ended") return isEnded || poll.status === "ended"
     return true
   })
 
-  const activePollsCount = myPolls.filter((p) => p.status === "active" && new Date(p.end_time) > new Date()).length
-  const endedPollsCount = myPolls.filter((p) => p.status === "ended" || new Date(p.end_time) <= new Date()).length
+  const activePollsCount = myPolls.filter((p) => p.status === "active" && new Date(p.endTime) > new Date()).length
+  const endedPollsCount = myPolls.filter((p) => p.status === "ended" || new Date(p.endTime) <= new Date()).length
 
   return (
     <div className="space-y-6">

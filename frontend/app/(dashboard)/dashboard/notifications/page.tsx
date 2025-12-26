@@ -1,79 +1,41 @@
 "use client"
 
-import { useState } from "react"
+import { useEffect } from "react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { Bell, BarChart3, Users, CheckCircle, Trash2, Check } from "lucide-react"
+import { Bell, BarChart3, Users, CheckCircle, Trash2, Check, ExternalLink, Loader2 } from "lucide-react"
 import { cn } from "@/lib/utils"
-
-interface Notification {
-  id: string
-  type: "poll" | "group" | "result"
-  title: string
-  description: string
-  time: string
-  read: boolean
-}
-
-const initialNotifications: Notification[] = [
-  {
-    id: "1",
-    type: "poll",
-    title: "Nouveau sondage disponible",
-    description: "Un nouveau sondage 'Choix du restaurant' a été créé dans le groupe Tech Team",
-    time: "Il y a 5 min",
-    read: false,
-  },
-  {
-    id: "2",
-    type: "result",
-    title: "Résultats disponibles",
-    description: "Les résultats du sondage 'Destination vacances' sont maintenant disponibles",
-    time: "Il y a 1h",
-    read: false,
-  },
-  {
-    id: "3",
-    type: "group",
-    title: "Invitation au groupe",
-    description: "Vous avez été invité à rejoindre le groupe 'Marketing'",
-    time: "Il y a 2h",
-    read: true,
-  },
-  {
-    id: "4",
-    type: "poll",
-    title: "Rappel de vote",
-    description: "Le sondage 'Date de la réunion' se termine dans 24h",
-    time: "Hier",
-    read: true,
-  },
-]
+import { useNotificationStore, Notification } from "@/store/notification-store"
+import { formatDistanceToNow } from "date-fns"
+import { fr } from "date-fns/locale"
+import Link from "next/link"
 
 export default function NotificationsPage() {
-  const [notifications, setNotifications] = useState(initialNotifications)
+  const {
+    notifications,
+    isLoading,
+    fetchNotifications,
+    markAsRead,
+    markAllAsRead,
+    deleteNotification
+  } = useNotificationStore()
 
-  const unreadCount = notifications.filter((n) => !n.read).length
+  useEffect(() => {
+    fetchNotifications()
+  }, [])
 
-  const markAsRead = (id: string) => {
-    setNotifications(notifications.map((n) => (n.id === id ? { ...n, read: true } : n)))
-  }
-
-  const markAllAsRead = () => {
-    setNotifications(notifications.map((n) => ({ ...n, read: true })))
-  }
-
-  const deleteNotification = (id: string) => {
-    setNotifications(notifications.filter((n) => n.id !== id))
-  }
+  const unreadCount = notifications.filter((n) => !n.isRead).length
 
   const getIcon = (type: string) => {
     switch (type) {
       case "poll":
+      case "poll_ended":
         return <BarChart3 className="h-5 w-5" />
-      case "group":
+      case "group_request":
+      case "join_approved":
+      case "join_rejected":
         return <Users className="h-5 w-5" />
       case "result":
         return <CheckCircle className="h-5 w-5" />
@@ -83,13 +45,14 @@ export default function NotificationsPage() {
   }
 
   const NotificationItem = ({ notification }: { notification: Notification }) => (
-    <Card className={cn("transition-colors", !notification.read && "border-l-4 border-l-primary bg-primary/5")}>
+    <Card className={cn("transition-colors", !notification.isRead && "border-l-4 border-l-primary bg-primary/5")}>
       <CardContent className="flex items-start gap-4 p-4">
         <div
           className={cn(
             "flex h-10 w-10 shrink-0 items-center justify-center rounded-full",
-            notification.type === "poll" && "bg-blue-500/10 text-blue-500",
-            notification.type === "group" && "bg-green-500/10 text-green-500",
+            (notification.type === "poll" || notification.type === "poll_ended") && "bg-blue-500/10 text-blue-500",
+            (notification.type === "group_request" || notification.type === "join_approved") && "bg-green-500/10 text-green-500",
+            notification.type === "join_rejected" && "bg-red-500/10 text-red-500",
             notification.type === "result" && "bg-purple-500/10 text-purple-500",
           )}
         >
@@ -98,12 +61,24 @@ export default function NotificationsPage() {
         <div className="flex-1 space-y-1">
           <div className="flex items-start justify-between gap-2">
             <p className="font-medium">{notification.title}</p>
-            <span className="shrink-0 text-xs text-muted-foreground">{notification.time}</span>
+            <span className="shrink-0 text-xs text-muted-foreground">
+              {formatDistanceToNow(new Date(notification.createdAt), { addSuffix: true, locale: fr })}
+            </span>
           </div>
-          <p className="text-sm text-muted-foreground">{notification.description}</p>
+          <p className="text-sm text-muted-foreground">{notification.message}</p>
+          {notification.link && (
+            <Link
+              href={notification.link}
+              className="mt-2 inline-flex items-center text-xs font-medium text-primary hover:underline"
+              onClick={() => markAsRead(notification.id)}
+            >
+              Voir les détails
+              <ExternalLink className="ml-1 h-3 w-3" />
+            </Link>
+          )}
         </div>
         <div className="flex shrink-0 gap-1">
-          {!notification.read && (
+          {!notification.isRead && (
             <Button size="icon" variant="ghost" className="h-8 w-8" onClick={() => markAsRead(notification.id)}>
               <Check className="h-4 w-4" />
             </Button>
@@ -127,7 +102,12 @@ export default function NotificationsPage() {
         <div>
           <h1 className="text-2xl font-bold text-foreground">Notifications</h1>
           <p className="text-muted-foreground">
-            {unreadCount > 0
+            {isLoading ? (
+              <span className="flex items-center gap-2">
+                <Loader2 className="h-4 w-4 animate-spin" />
+                Chargement...
+              </span>
+            ) : unreadCount > 0
               ? `Vous avez ${unreadCount} notification${unreadCount > 1 ? "s" : ""} non lue${unreadCount > 1 ? "s" : ""}`
               : "Toutes vos notifications ont été lues"}
           </p>
@@ -159,7 +139,11 @@ export default function NotificationsPage() {
         </TabsList>
 
         <TabsContent value="all" className="mt-6 space-y-3">
-          {notifications.length === 0 ? (
+          {isLoading && notifications.length === 0 ? (
+            <div className="flex flex-col items-center justify-center py-12">
+              <Loader2 className="h-12 w-12 animate-spin text-muted-foreground/50" />
+            </div>
+          ) : notifications.length === 0 ? (
             <div className="flex flex-col items-center justify-center rounded-lg border border-dashed py-12">
               <Bell className="h-12 w-12 text-muted-foreground/50" />
               <h3 className="mt-4 font-medium">Aucune notification</h3>
@@ -171,7 +155,7 @@ export default function NotificationsPage() {
         </TabsContent>
 
         <TabsContent value="unread" className="mt-6 space-y-3">
-          {notifications.filter((n) => !n.read).length === 0 ? (
+          {notifications.filter((n) => !n.isRead).length === 0 ? (
             <div className="flex flex-col items-center justify-center rounded-lg border border-dashed py-12">
               <CheckCircle className="h-12 w-12 text-muted-foreground/50" />
               <h3 className="mt-4 font-medium">Tout est lu!</h3>
@@ -179,7 +163,7 @@ export default function NotificationsPage() {
             </div>
           ) : (
             notifications
-              .filter((n) => !n.read)
+              .filter((n) => !n.isRead)
               .map((notification) => <NotificationItem key={notification.id} notification={notification} />)
           )}
         </TabsContent>
