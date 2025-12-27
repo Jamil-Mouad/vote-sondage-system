@@ -66,7 +66,7 @@ export function Sidebar({ isOpen, onClose }: SidebarProps) {
 
           {/* User info */}
           <div className="p-4 lg:pt-6">
-            <div className="flex items-center gap-3 p-3 rounded-xl bg-muted/50">
+            <div className="flex items-center gap-3 p-3 rounded-2xl bg-muted/50 border border-border/50 shadow-sm">
               <Avatar
                 className="h-12 w-12 ring-2 ring-offset-2 ring-offset-background"
                 style={{ ringColor: "var(--primary)" }}
@@ -104,7 +104,7 @@ export function Sidebar({ isOpen, onClose }: SidebarProps) {
                   href={item.href}
                   onClick={onClose}
                   className={cn(
-                    "flex items-center gap-3 px-4 py-3 rounded-xl transition-all duration-200",
+                    "flex items-center gap-3 px-4 py-3 rounded-2xl transition-all duration-200",
                     "hover:scale-105 hover:shadow-md active:scale-95",
                     isActive
                       ? "text-white font-medium shadow-lg"
@@ -113,8 +113,8 @@ export function Sidebar({ isOpen, onClose }: SidebarProps) {
                   style={
                     isActive
                       ? {
-                          background: `linear-gradient(135deg, var(--primary), var(--primary-700))`,
-                        }
+                        background: `linear-gradient(135deg, var(--primary), var(--primary-700))`,
+                      }
                       : undefined
                   }
                 >

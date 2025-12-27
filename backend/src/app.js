@@ -73,6 +73,11 @@ app.get('/api/health', (req, res) => {
   res.status(200).json({ status: 'UP', message: 'Backend is running.' });
 });
 
+// 404 handler
+app.use((req, res) => {
+  error(res, `Route ${req.originalUrl} not found.`, 404, 'ROUTE_NOT_FOUND');
+});
+
 // Global Error Handler (must be last middleware)
 app.use(errorHandler);
 

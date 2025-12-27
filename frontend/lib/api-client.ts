@@ -4,7 +4,7 @@ const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000/a
 // Fonction pour récupérer le token depuis auth-storage (Zustand persist)
 function getAuthToken(): string | null {
   if (typeof window === "undefined") return null
-  
+
   try {
     // D'abord essayer de récupérer depuis le store Zustand persisté
     const authStorage = localStorage.getItem("auth-storage")
@@ -14,7 +14,7 @@ function getAuthToken(): string | null {
         return parsed.state.token
       }
     }
-    
+
     // Fallback: essayer l'ancienne clé accessToken (pour compatibilité)
     const legacyToken = localStorage.getItem("accessToken")
     if (legacyToken) {
@@ -23,7 +23,7 @@ function getAuthToken(): string | null {
   } catch (e) {
     console.error("Error reading auth token:", e)
   }
-  
+
   return null
 }
 
@@ -43,7 +43,7 @@ async function apiRequest<T>(
   }
 
   if (token) {
-    headers["Authorization"] = `Bearer ${token}`
+    (headers as any)["Authorization"] = `Bearer ${token}`
   }
 
   try {
@@ -52,10 +52,18 @@ async function apiRequest<T>(
       headers,
     })
 
-    const result = await response.json()
+    let result;
+    const contentType = response.headers.get("content-type");
+
+    if (contentType && contentType.includes("application/json")) {
+      result = await response.json();
+    } else {
+      const text = await response.text();
+      console.error("Non-JSON response received:", text.substring(0, 200));
+      throw new Error(`Erreur serveur (${response.status}): Réponse non-JSON reçue.`);
+    }
 
     if (!response.ok) {
-      // Le backend renvoie les erreurs dans result.error.message ou result.error.details
       const errorMessage = result.error?.message || result.message || "Une erreur est survenue"
       const errorDetails = result.error?.details
 

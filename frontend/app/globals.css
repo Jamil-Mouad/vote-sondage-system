@@ -41,6 +41,8 @@
   --sidebar-accent-foreground: oklch(0.205 0 0);
   --sidebar-border: oklch(0.922 0 0);
   --sidebar-ring: oklch(0.55 0.2 250);
+  --shadow-primary: oklch(from var(--primary) l c h / 0.12);
+  --shadow-primary-strong: oklch(from var(--primary) l c h / 0.2);
 }
 
 .dark {
@@ -79,6 +81,8 @@
   --sidebar-accent-foreground: oklch(0.985 0 0);
   --sidebar-border: oklch(0.25 0.01 250);
   --sidebar-ring: oklch(0.65 0.2 250);
+  --shadow-primary: oklch(from var(--primary) l c h / 0.25);
+  --shadow-primary-strong: oklch(from var(--primary) l c h / 0.4);
 }
 
 @theme inline {
@@ -120,12 +124,20 @@
   --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
   --color-sidebar-border: var(--sidebar-border);
   --color-sidebar-ring: var(--sidebar-ring);
+
+  /* Modern Colored Shadows */
+  --shadow-sm: 0 1px 2px 0 var(--shadow-primary);
+  --shadow-md: 0 4px 6px -1px var(--shadow-primary), 0 2px 4px -2px var(--shadow-primary);
+  --shadow-lg: 0 10px 15px -3px var(--shadow-primary), 0 4px 6px -4px var(--shadow-primary);
+  --shadow-xl: 0 20px 25px -5px var(--shadow-primary), 0 8px 10px -6px var(--shadow-primary);
+  --shadow-2xl: 0 25px 50px -12px var(--shadow-primary-strong);
 }
 
 @layer base {
   * {
     @apply border-border outline-ring/50;
   }
+
   body {
     @apply bg-background text-foreground;
   }
@@ -179,7 +191,7 @@
 
 /* Hover sur les barres de graphiques et leurs textes */
 .recharts-bar:hover,
-.recharts-bar:hover + * {
+.recharts-bar:hover+* {
   opacity: 1 !important;
   filter: brightness(1.2);
 }
@@ -193,11 +205,13 @@
 }
 
 /* Amélioration de la lisibilité des liens et boutons */
-a, button {
+a,
+button {
   transition: all 0.2s ease;
 }
 
-a:hover, button:hover {
+a:hover,
+button:hover {
   opacity: 0.9;
 }
 
@@ -212,6 +226,7 @@ a:hover, button:hover {
     opacity: 0;
     transform: translateY(20px);
   }
+
   to {
     opacity: 1;
     transform: translateY(0);
@@ -223,6 +238,7 @@ a:hover, button:hover {
     opacity: 0;
     transform: translateY(-20px);
   }
+
   to {
     opacity: 1;
     transform: translateY(0);
@@ -233,6 +249,7 @@ a:hover, button:hover {
   from {
     opacity: 0;
   }
+
   to {
     opacity: 1;
   }
@@ -243,6 +260,7 @@ a:hover, button:hover {
     opacity: 0;
     transform: scale(0.95);
   }
+
   to {
     opacity: 1;
     transform: scale(1);
@@ -256,12 +274,12 @@ button:not(:disabled) {
 
 button:not(:disabled):hover {
   transform: translateY(-2px);
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  box-shadow: 0 4px 12px var(--shadow-primary-strong);
 }
 
 button:not(:disabled):active {
   transform: translateY(0);
-  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.1);
+  box-shadow: 0 2px 6px var(--shadow-primary);
 }
 
 /* Animation sur les badges */
@@ -271,9 +289,12 @@ button:not(:disabled):active {
 
 /* Effet de pulsation pour les notifications */
 @keyframes pulse {
-  0%, 100% {
+
+  0%,
+  100% {
     opacity: 1;
   }
+
   50% {
     opacity: 0.8;
   }
@@ -293,7 +314,8 @@ input:focus,
 textarea:focus,
 select:focus {
   transform: scale(1.01);
-  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+  box-shadow: 0 0 0 3px oklch(from var(--primary) l c h / 0.15);
+  border-color: var(--primary);
   transition: all 0.2s ease;
 }
 
@@ -303,7 +325,26 @@ select:focus {
 .hover\:shadow-lg:hover {
   transform: translateY(-4px);
   transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.15);
+  box-shadow: 0 10px 25px var(--shadow-primary-strong);
+}
+
+/* Animation de flottement pour les illustrations */
+@keyframes float {
+  0% {
+    transform: translateY(0px);
+  }
+
+  50% {
+    transform: translateY(-15px);
+  }
+
+  100% {
+    transform: translateY(0px);
+  }
+}
+
+.animate-float {
+  animation: float 5s ease-in-out infinite;
 }
 
 /* Animation des listes */

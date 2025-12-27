@@ -86,7 +86,7 @@ export function Header({ onMenuClick }: HeaderProps) {
               placeholder="Rechercher..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="pl-9 bg-muted/50"
+              className="pl-9 bg-muted/50 rounded-full border-primary/10 focus-visible:ring-primary/20 transition-all"
             />
           </div>
         </div>
@@ -119,7 +119,7 @@ export function Header({ onMenuClick }: HeaderProps) {
                 )}
               </Button>
             </PopoverTrigger>
-            <PopoverContent align="end" className="w-80 p-0">
+            <PopoverContent align="end" className="w-80 p-0 rounded-2xl overflow-hidden shadow-2xl border-primary/10">
               <div className="flex items-center justify-between p-4 border-b">
                 <h3 className="font-semibold">Notifications</h3>
                 {unreadCount > 0 && (
@@ -187,7 +187,7 @@ export function Header({ onMenuClick }: HeaderProps) {
                 </Avatar>
               </Button>
             </DropdownMenuTrigger>
-            <DropdownMenuContent align="end" className="w-56">
+            <DropdownMenuContent align="end" className="w-56 rounded-2xl p-2 shadow-2xl border-primary/10">
               <DropdownMenuLabel>
                 <div className="flex flex-col">
                   <span>{user?.name}</span>

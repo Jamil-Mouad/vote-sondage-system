@@ -39,7 +39,7 @@ const Vote = {
 
   findPollsByUser: async (userId) => {
     const [rows] = await pool.execute(
-      `SELECT v.*, p.question, p.description, p.options, p.end_time, p.status, p.is_public, p.created_by, p.group_id, p.created_at
+      `SELECT v.*, p.question, p.description, p.options, p.end_time, p.status, p.is_public, p.created_by, p.group_id, p.created_at, p.poll_type
        FROM votes v 
        JOIN polls p ON v.poll_id = p.id 
        WHERE v.user_id = ? 

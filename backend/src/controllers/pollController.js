@@ -311,18 +311,8 @@ const getPollHistory = async (req, res) => {
   }
 };
 
-module.exports = {
-  createPoll,
-  listPublicPolls,
-  getPollById,
-  getMyPolls,
-  getPollStats,
-  updatePoll,
-  cancelPoll,
-  getPollHistory,
-};
-
 const getEnhancedHistory = async (req, res) => {
+  console.log('Fetching enhanced history for user:', req.user.id);
   try {
     const userId = req.user.id;
 

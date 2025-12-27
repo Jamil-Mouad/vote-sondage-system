@@ -13,7 +13,7 @@ import { usePollStore, type Poll, type PollOption } from "@/store/poll-store"
 import { toast } from "sonner"
 import { useCountdown } from "@/hooks/use-countdown"
 import { cn } from "@/lib/utils"
-import { Clock, Users, MoreHorizontal, Share2, Flag, Check, Trophy, Lock } from "lucide-react"
+import { Clock, Users, MoreHorizontal, Share2, Flag, Check, Trophy, Lock, MessageCircle } from "lucide-react"
 
 interface PollCardProps {
   poll: Poll
@@ -53,18 +53,15 @@ export function PollCard({ poll, onVote }: PollCardProps) {
       return localPoll.canSeeResults
     }
 
-    // Logique de fallback locale (similaire au backend)
+    // Logique de fallback locale
     if (localPoll.pollType === 'vote') {
-      // Vote: résultats uniquement après la fin ET si l'utilisateur a voté
       return isEnded && (localPoll.hasVoted || isCreator)
     }
 
     if (localPoll.pollType === 'binary_poll' && !localPoll.isPublic) {
-      // Binary poll privé: temps réel pour les votants
       return localPoll.hasVoted || isCreator || isEnded
     }
 
-    // Sondage standard: afficher si voté ou terminé
     return localPoll.showResultsOnVote && (localPoll.hasVoted || isCreator || isEnded)
   }
 
@@ -84,19 +81,16 @@ export function PollCard({ poll, onVote }: PollCardProps) {
   }
 
   const handleVote = async (optionIndex: number) => {
-    // Si non authentifié, afficher la modal de connexion
     if (!isAuthenticated) {
       setShowLoginModal(true)
       return
     }
 
-    // Si c'est le créateur, afficher un toast d'info
     if (isCreator) {
       toast.info("Vous ne pouvez pas voter sur votre propre sondage")
       return
     }
 
-    // Si déjà voté, afficher un toast
     if (localPoll.hasVoted) {
       toast.warning("Vous avez déjà voté sur ce sondage")
       return
@@ -108,7 +102,6 @@ export function PollCard({ poll, onVote }: PollCardProps) {
     try {
       const success = await vote(poll.id, optionIndex)
       if (success) {
-        // Calculate new results locally
         const newTotalVotes = localPoll.totalVotes + 1
         const newResults: PollOption[] = localPoll.options.map((option) => {
           const currentResult = localPoll.results?.results?.find(r => r.text === option.text)
@@ -122,7 +115,6 @@ export function PollCard({ poll, onVote }: PollCardProps) {
           }
         })
 
-        // Update local state with new results
         setLocalPoll(prev => ({
           ...prev,
           hasVoted: true,
@@ -138,11 +130,9 @@ export function PollCard({ poll, onVote }: PollCardProps) {
       }
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : "Erreur lors du vote"
-      // Afficher un toast approprié selon l'erreur
       if (errorMessage.includes("creator") || errorMessage.includes("propre")) {
         toast.info("Vous ne pouvez pas voter sur votre propre sondage")
       } else if (errorMessage.includes("already voted") || errorMessage.includes("déjà voté") || errorMessage.includes("Conflict")) {
-        // Update local state to reflect that user has already voted
         setLocalPoll(prev => ({ ...prev, hasVoted: true }))
         toast.warning("Vous avez déjà voté sur ce sondage")
       } else {
@@ -160,54 +150,55 @@ export function PollCard({ poll, onVote }: PollCardProps) {
 
   const winningOption = getWinningOption()
 
-  // Build avatar URL
   const avatarUrl = poll.creatorAvatar
     ? `${process.env.NEXT_PUBLIC_API_URL?.replace('/api', '') || 'http://localhost:5000'}${poll.creatorAvatar}`
     : undefined
   const creatorName = poll.creatorName || "Utilisateur"
 
   return (
-    <Card className="overflow-hidden hover:shadow-lg transition-shadow">
+    <Card className="group relative overflow-hidden transition-all duration-300 border-white/10 shadow-lg hover:shadow-2xl hover:translate-y-[-2px] bg-white/50 backdrop-blur-md dark:bg-[#1E1E1E]/90 dark:border-white/5">
       <CardContent className="p-0">
         {/* Header */}
-        <div className="flex items-start justify-between p-4 pb-0">
+        <div className="flex items-start justify-between p-5 pb-2">
           <div className="flex items-center gap-3">
-            <Avatar className="h-10 w-10">
-              <AvatarImage src={avatarUrl} alt={creatorName} />
-              <AvatarFallback style={{ background: "var(--primary)", color: "white" }}>
-                {creatorName.slice(0, 2).toUpperCase()}
-              </AvatarFallback>
-            </Avatar>
+            <div className="p-0.5 rounded-full bg-gradient-to-tr from-primary to-purple-500">
+              <Avatar className="h-10 w-10 border-2 border-background">
+                <AvatarImage src={avatarUrl} alt={creatorName} />
+                <AvatarFallback className="bg-background text-foreground font-bold">
+                  {creatorName.slice(0, 2).toUpperCase()}
+                </AvatarFallback>
+              </Avatar>
+            </div>
             <div>
-              <p className="font-medium text-sm">{creatorName}</p>
-              <p className="text-xs text-muted-foreground">{formatTimeAgo(poll.createdAt)}</p>
+              <p className="font-semibold text-sm text-foreground/90">{creatorName}</p>
+              <p className="text-xs text-muted-foreground font-medium">{formatTimeAgo(poll.createdAt)}</p>
             </div>
           </div>
 
           <div className="flex items-center gap-2">
-            <PollTypeBadge type={poll.pollType} className="text-xs" />
+            <PollTypeBadge type={poll.pollType} className="text-[10px] px-2 py-0.5 shadow-sm" />
             {isCreator && (
-              <Badge variant="secondary" className="text-xs">
-                Créateur
+              <Badge variant="secondary" className="text-[10px] bg-primary/10 text-primary border-0">
+                Moi
               </Badge>
             )}
             {isEnded && (
-              <Badge variant="destructive" className="text-xs">
+              <Badge variant="destructive" className="text-[10px]">
                 Terminé
               </Badge>
             )}
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
-                <Button variant="ghost" size="icon" className="h-8 w-8">
-                  <MoreHorizontal className="h-4 w-4" />
+                <Button variant="ghost" size="icon" className="h-8 w-8 rounded-full hover:bg-muted/50">
+                  <MoreHorizontal className="h-4 w-4 text-muted-foreground" />
                 </Button>
               </DropdownMenuTrigger>
-              <DropdownMenuContent align="end">
-                <DropdownMenuItem>
+              <DropdownMenuContent align="end" className="rounded-xl">
+                <DropdownMenuItem className="cursor-pointer">
                   <Share2 className="h-4 w-4 mr-2" />
                   Partager
                 </DropdownMenuItem>
-                <DropdownMenuItem>
+                <DropdownMenuItem className="cursor-pointer text-destructive focus:text-destructive">
                   <Flag className="h-4 w-4 mr-2" />
                   Signaler
                 </DropdownMenuItem>
@@ -217,34 +208,38 @@ export function PollCard({ poll, onVote }: PollCardProps) {
         </div>
 
         {/* Question */}
-        <div className="px-4 py-3">
-          <h3 className="font-semibold text-lg leading-tight mb-1">{poll.question}</h3>
-          {poll.description && <p className="text-sm text-muted-foreground">{poll.description}</p>}
+        <div className="px-5 py-4">
+          <h3 className="font-black text-2xl leading-tight mb-2 text-foreground tracking-tight">{poll.question}</h3>
+          {poll.description && <p className="text-sm text-muted-foreground/80 line-clamp-2 leading-relaxed">{poll.description}</p>}
         </div>
 
-        {/* Timer */}
+        {/* 3D-like Metadata Indicators */}
         {!isEnded && (
-          <div
-            className={cn(
-              "flex items-center gap-2 px-4 py-2 text-sm",
-              countdown.minutes < 2 ? "text-red-500" : "text-muted-foreground",
-            )}
-          >
-            <Clock className="h-4 w-4" />
-            <span>Termine dans {countdown.formatted}</span>
+          <div className="px-5 pb-2 flex gap-4">
+            <div className="flex items-center gap-2 bg-blue-500/10 text-blue-600 dark:text-blue-400 px-3 py-1.5 rounded-xl border border-blue-500/20 shadow-sm">
+              <div className="relative">
+                <Clock className="h-4 w-4 text-blue-500 drop-shadow-sm" />
+                {countdown.minutes < 60 && <span className="absolute -top-1 -right-1 flex h-2 w-2"><span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-blue-400 opacity-75"></span><span className="relative inline-flex rounded-full h-2 w-2 bg-blue-500"></span></span>}
+              </div>
+              <span className="text-xs font-semibold">{countdown.formatted}</span>
+            </div>
+            <div className="flex items-center gap-2 bg-purple-500/10 text-purple-600 dark:text-purple-400 px-3 py-1.5 rounded-xl border border-purple-500/20 shadow-sm">
+              <MessageCircle className="h-4 w-4 text-purple-500 drop-shadow-sm" />
+              <span className="text-xs font-semibold">{localPoll.totalVotes} votes</span>
+            </div>
           </div>
         )}
 
         {/* Options */}
-        <div className="px-4 pb-4 space-y-2">
+        <div className="px-5 pb-5 space-y-3 pt-2">
           {!showResults && localPoll.hasVoted && localPoll.pollType === 'vote' && !isEnded && (
-            <div className="p-4 text-center rounded-lg bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-900 mb-3">
-              <Lock className="h-6 w-6 mx-auto mb-2 text-amber-600" />
-              <p className="text-sm font-medium text-amber-700 dark:text-amber-400">
-                Résultats masqués jusqu'à la fin du vote
+            <div className="p-4 text-center rounded-2xl bg-amber-500/10 border border-amber-500/20 backdrop-blur-sm mb-3">
+              <Lock className="h-6 w-6 mx-auto mb-2 text-amber-500" />
+              <p className="text-sm font-bold text-amber-700 dark:text-amber-400">
+                Résultats masqués
               </p>
               <p className="text-xs text-amber-600/80 dark:text-amber-500/80 mt-1">
-                Seuls les participants pourront voir les résultats une fois le vote terminé
+                Le suspense reste entier jusqu'à la fin !
               </p>
             </div>
           )}
@@ -258,64 +253,66 @@ export function PollCard({ poll, onVote }: PollCardProps) {
                 onClick={() => handleVote(option.index)}
                 disabled={!canVote || isVoting}
                 className={cn(
-                  "w-full relative overflow-hidden rounded-lg border-2 p-3 text-left transition-all duration-300",
-                  canVote && "hover:border-primary/50 hover:bg-primary/5 cursor-pointer active:scale-[0.98]",
+                  "w-full relative overflow-hidden rounded-xl border-2 p-3 text-left transition-all duration-300 group/option",
+                  // Interaction Styles
+                  canVote && "hover:border-primary/30 hover:bg-primary/5 cursor-pointer active:scale-[0.99]",
                   !canVote && "cursor-default",
-                  isMyVote ? "border-green-500 bg-green-500/10 shadow-md ring-1 ring-green-500/20" : "border-border",
+                  // Selected Styles
+                  isMyVote ? "border-primary bg-primary/5 shadow-md ring-1 ring-primary/20" : "border-border/60 bg-card/40",
+                  // Winner Styles
                   isWinner && !isMyVote && "border-amber-500/50 bg-amber-500/5",
                 )}
               >
-                {/* Progress bar background */}
+                {/* Gradient Progress Bar */}
                 {showResults && (
                   <div
                     className={cn(
-                      "absolute inset-0 transition-all duration-700 ease-in-out",
-                      isMyVote
-                        ? "bg-green-500/20 dark:bg-green-500/15"
-                        : "bg-muted/30"
+                      "absolute inset-y-0 left-0 transition-all duration-1000 ease-out rounded-r-full opacity-15 dark:opacity-25",
                     )}
-                    style={{ width: `${option.percentage}%` }}
+                    style={{
+                      width: `${option.percentage}%`,
+                      background: `linear-gradient(90deg, var(--primary) 0%, #8b5cf6 100%)`,
+                      height: '100%'
+                    }}
                   />
                 )}
 
                 {/* Content */}
-                <div className="relative flex items-center justify-between">
-                  <div className="flex items-center gap-3">
-                    {/* Visual indicator of selection */}
+                <div className="relative flex items-center justify-between z-10">
+                  <div className="flex items-center gap-4">
+                    {/* Checkbox / Indicator */}
                     <div className={cn(
-                      "h-5 w-5 rounded-full border-2 flex items-center justify-center transition-all duration-300",
+                      "h-6 w-6 rounded-full border-2 flex items-center justify-center transition-all duration-300 shadow-sm shrink-0",
                       isMyVote
-                        ? "bg-green-500 border-green-500 scale-110 shadow-sm"
-                        : "border-muted-foreground/30",
+                        ? "bg-primary border-primary scale-110 shadow-primary/30"
+                        : "border-muted-foreground/30 group-hover/option:border-primary/60",
                       showResults && !isMyVote && "opacity-50"
                     )}>
                       {isMyVote ? (
-                        <Check className="h-3 w-3 text-white stroke-[3]" />
+                        <Check className="h-4 w-4 text-white stroke-[3.5]" />
                       ) : !showResults && (
-                        <div className="h-1.5 w-1.5 rounded-full bg-transparent" />
+                        <div className="h-2 w-2 rounded-full bg-primary opacity-0 group-hover/option:opacity-100 transition-opacity" />
                       )}
+                      {showResults && !isMyVote && <div className="h-2 w-2 rounded-full bg-muted-foreground/30" />}
                     </div>
 
                     <span className={cn(
-                      "font-semibold transition-colors duration-300",
-                      isMyVote ? "text-green-700 dark:text-green-300" : "text-foreground/90",
-                      isWinner && !isMyVote && "text-amber-700 dark:text-amber-400"
+                      "font-bold transition-colors duration-300 text-base tracking-tight",
+                      isMyVote ? "text-primary" : "text-foreground/90",
+                      isWinner && !isMyVote && "text-amber-600 dark:text-amber-400"
                     )}>
                       {option.text}
-                      {isWinner && !isMyVote && <Trophy className="inline-block h-3.5 w-3.5 ml-2 text-amber-500 animate-bounce" />}
+                      {isWinner && !isMyVote && <Trophy className="inline-block h-4 w-4 ml-2 text-amber-500 drop-shadow-sm" />}
                     </span>
                   </div>
 
                   {showResults && (
-                    <div className="flex flex-col items-end">
+                    <div className="flex flex-col items-end shrink-0">
                       <span className={cn(
-                        "font-bold text-sm tabular-nums",
-                        isMyVote ? "text-green-600 dark:text-green-400" : "text-foreground/70"
+                        "font-black text-lg tabular-nums tracking-tighter",
+                        isMyVote ? "text-primary" : "text-foreground/70"
                       )}>
                         {option.percentage}%
-                      </span>
-                      <span className="text-[10px] text-muted-foreground/60 font-medium">
-                        {option.votes} {option.votes > 1 ? 'votes' : 'vote'}
                       </span>
                     </div>
                   )}
@@ -326,22 +323,16 @@ export function PollCard({ poll, onVote }: PollCardProps) {
         </div>
 
         {/* Footer */}
-        <div className="flex items-center justify-between px-4 py-3 border-t bg-muted/30">
-          <div className="flex items-center gap-4 text-sm text-muted-foreground">
-            <span className="flex items-center gap-1">
-              <Users className="h-4 w-4" />
-              {localPoll.totalVotes} votes
-            </span>
+        {isEnded && (
+          <div className="px-5 py-3 bg-muted/20 border-t border-white/5 flex items-center justify-center">
+            <p className="text-xs font-medium text-muted-foreground">
+              Ce sondage est clôturé. <span className="text-foreground">Merci d'avoir participé !</span>
+            </p>
           </div>
-          <Button variant="ghost" size="sm" className="text-xs">
-            <Share2 className="h-3 w-3 mr-1" />
-            Partager
-          </Button>
-        </div>
+        )}
       </CardContent>
 
-      {/* Modal de connexion requise */}
       <LoginRequiredModal open={showLoginModal} onClose={() => setShowLoginModal(false)} />
-    </Card>
+    </Card >
   )
 }

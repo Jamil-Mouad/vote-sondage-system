@@ -1,79 +1,121 @@
 "use client"
 
 import type React from "react"
-
+import { useThemeStore } from "@/store/theme-store"
 import { ThemeToggle } from "@/components/ui/theme-toggle"
-import { BarChart3, Vote, Users, TrendingUp } from "lucide-react"
-
-const features = [
-  { icon: Vote, text: "Votez facilement" },
-  { icon: TrendingUp, text: "Résultats en temps réel" },
-  { icon: Users, text: "Groupes privés" },
-]
+import { BarChart3 } from "lucide-react"
+import Image from "next/image"
+import { useEffect, useState } from "react"
+import { cn } from "@/lib/utils"
 
 export function AuthLayout({ children }: { children: React.ReactNode }) {
-  return (
-    <div className="min-h-screen flex">
-      {/* Left side - Illustration */}
-      <div className="hidden lg:flex lg:w-1/2 bg-gradient-to-br from-[var(--primary)] to-[var(--primary-700)] p-12 flex-col justify-between relative overflow-hidden">
-        {/* Decorative elements */}
-        <div className="absolute top-20 right-20 w-64 h-64 bg-white/10 rounded-full blur-3xl" />
-        <div className="absolute bottom-20 left-10 w-48 h-48 bg-white/10 rounded-full blur-2xl" />
+  const { theme, accentColor } = useThemeStore()
+  const [mounted, setMounted] = useState(false)
 
-        <div className="relative z-10">
-          <div className="flex items-center gap-3 text-white">
-            <BarChart3 className="h-10 w-10" />
-            <span className="text-2xl font-bold">VoteApp</span>
+  // Avoid hydration mismatch
+  useEffect(() => {
+    setMounted(true)
+  }, [])
+
+  const getIllustrationSrc = () => {
+    if (theme === "light") return "/login-icon-light-mode-public.png"
+
+    switch (accentColor) {
+      case "blue": return "/login-icon-dark-bleu.png"
+      case "green": return "/login-icon-dark-vert.png"
+      case "gold": return "/login-icon-dark-orange.png"
+      case "purple": return "/login-icon-dark-violet.png"
+      case "red": return "/login-icon-dark-gold.png" // red is mapped to gold as per design
+      case "pink": return "/login-icon-dark-pink.png"
+      default: return "/login-icon-dark-mode-public.png"
+    }
+  }
+
+  const illustrationSrc = getIllustrationSrc()
+
+  return (
+    <div className="fixed inset-0 w-full h-full overflow-hidden flex items-center justify-center transition-colors duration-500">
+      {/* Dynamic Background Gradient */}
+      <div
+        className="absolute inset-0 z-0 transition-all duration-1000 ease-in-out"
+        style={{
+          background: `linear-gradient(135deg, var(--primary-700) 0%, var(--primary-500) 50%, var(--primary-100) 100%)`,
+          opacity: 0.8
+        }}
+      />
+
+      {/* Subtle animated blobs */}
+      <div className="absolute top-[-10%] left-[-10%] w-[40%] h-[40%] bg-primary-500/30 rounded-full blur-[120px] animate-pulse" />
+      <div className="absolute bottom-[-10%] right-[-10%] w-[40%] h-[40%] bg-primary-700/30 rounded-full blur-[120px] animate-pulse" style={{ animationDelay: '2s' }} />
+
+      <div className="absolute top-6 right-6 z-50">
+        <ThemeToggle />
+      </div>
+
+      {/* Main Glassmorphism Container */}
+      <div className="relative z-10 w-full max-w-6xl h-[min(800px,95vh)] mx-4 flex items-stretch rounded-[2.5rem] overflow-hidden bg-white/10 dark:bg-black/20 backdrop-blur-3xl border border-white/20 shadow-[0_32px_64px_-16px_rgba(0,0,0,0.5)] animate-in zoom-in-95 duration-700">
+
+        {/* Left Section - Form */}
+        <div className="flex-1 flex flex-col p-8 sm:p-14 relative overflow-y-auto custom-scrollbar">
+          <div className="flex items-center gap-2 mb-8 absolute top-8 left-8 sm:left-14">
+            <div className="p-1.5 bg-white/20 rounded-lg">
+              <BarChart3 className="h-5 w-5 text-white" />
+            </div>
+            <span className="text-xl font-bold text-white tracking-tight">VotePoll</span>
+          </div>
+
+          <div className="flex-1 flex flex-col justify-center pt-8">
+            {children}
           </div>
         </div>
 
-        <div className="relative z-10 flex-1 flex items-center justify-center">
-          <div className="w-full max-w-md">
-            {/* Illustration */}
-            <div className="relative">
-              <div className="absolute inset-0 bg-gradient-to-t from-[var(--primary-700)] to-transparent rounded-3xl" />
-              <img
-                src="/people-voting-with-tablets-and-floating-poll-bubbl.jpg"
-                alt="Illustration de vote en ligne"
-                className="w-full h-auto rounded-3xl"
+        {/* Right Section - Illustration */}
+        <div className="hidden lg:flex w-[50%] relative overflow-hidden group">
+          <div className="absolute inset-0 flex items-center justify-center p-6">
+            <div className={cn(
+              "relative w-full h-full transform group-hover:scale-105 transition-transform duration-1000 ease-out animate-float",
+              "scale-110"
+            )}>
+              <Image
+                src={illustrationSrc}
+                alt="Illustration"
+                fill
+                className={cn(
+                  "object-contain transition-all duration-700",
+                  theme === "light" && "translate-y-[12px] -translate-x-[12px]"
+                )}
+                style={{
+                  filter: `drop-shadow(0 15px 30px var(--primary))`
+                }}
+                priority
               />
             </div>
           </div>
         </div>
-
-        <div className="relative z-10 space-y-6">
-          <h2 className="text-3xl font-bold text-white text-balance">
-            Simplifiez vos décisions avec notre plateforme de vote en ligne
-          </h2>
-          <div className="flex flex-wrap gap-6">
-            {features.map((feature) => (
-              <div key={feature.text} className="flex items-center gap-2 text-white/90">
-                <div className="p-2 bg-white/20 rounded-lg">
-                  <feature.icon className="h-5 w-5" />
-                </div>
-                <span className="font-medium">{feature.text}</span>
-              </div>
-            ))}
-          </div>
-        </div>
       </div>
 
-      {/* Right side - Form */}
-      <div className="flex-1 flex flex-col min-h-screen bg-background">
-        <div className="flex justify-end p-6">
-          <ThemeToggle />
-        </div>
-        <div className="flex-1 flex items-center justify-center p-6">
-          <div className="w-full max-w-md">
-            {/* Mobile logo */}
-            <div className="lg:hidden flex items-center justify-center gap-3 mb-8" style={{ color: "var(--primary)" }}>
-              <BarChart3 className="h-10 w-10" />
-              <span className="text-2xl font-bold">VoteApp</span>
-            </div>
-            {children}
-          </div>
-        </div>
-      </div>
+      <style jsx global>{`
+        @keyframes float {
+          0%, 100% { transform: translateY(0px); }
+          50% { transform: translateY(-20px); }
+        }
+        .animate-float {
+          animation: float 6s ease-in-out infinite;
+        }
+        .custom-scrollbar::-webkit-scrollbar {
+          width: 4px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-track {
+          background: transparent;
+        }
+        .custom-scrollbar::-webkit-scrollbar-thumb {
+          background: rgba(255, 255, 255, 0.1);
+          border-radius: 10px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+          background: rgba(255, 255, 255, 0.2);
+        }
+      `}</style>
     </div>
   )
 }
