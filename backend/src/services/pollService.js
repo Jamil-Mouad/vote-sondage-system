@@ -1,6 +1,7 @@
 const Poll = require('../models/Poll');
 const Vote = require('../models/Vote');
 const GroupMember = require('../models/GroupMember');
+const { pool } = require('../config/database');
 
 const calculateResults = async (pollId) => {
   const poll = await Poll.findById(pollId);
@@ -141,8 +142,95 @@ const getPollStats = async (pollId) => {
   };
 };
 
+const checkResultsAccess = async (pollId, userId) => {
+  const poll = await Poll.findById(pollId);
+  if (!poll) {
+    throw new Error('Poll not found');
+  }
+
+  const isEnded = new Date(poll.end_time) <= new Date() || poll.status === 'ended';
+  const userVote = userId ? await Vote.findByPollAndUser(pollId, userId) : null;
+  const isCreator = poll.created_by === userId;
+
+  // Type 'vote': résultats uniquement après la fin ET si l'utilisateur a voté
+  if (poll.poll_type === 'vote') {
+    return isEnded && (userVote || isCreator);
+  }
+
+  // Type 'binary_poll' privé: temps réel pour les votants uniquement
+  if (poll.poll_type === 'binary_poll' && !poll.is_public) {
+    return userVote || isCreator || isEnded;
+  }
+
+  // Polls standards: afficher les résultats si voté ou terminé
+  return poll.show_results_on_vote && (userVote || isCreator || isEnded);
+};
+
+const getGroupStatistics = async (groupId) => {
+  // Get all approved members count
+  const totalMembers = await GroupMember.countByGroup(groupId);
+
+  // Get all polls for this group
+  const [polls] = await pool.execute(
+    'SELECT * FROM polls WHERE group_id = ? ORDER BY created_at DESC',
+    [groupId]
+  );
+
+  // For each poll, get statistics
+  const pollStats = await Promise.all(polls.map(async (poll) => {
+    const totalVotes = await Vote.countByPoll(poll.id);
+    const participationRate = totalMembers > 0 ? (totalVotes / totalMembers) * 100 : 0;
+
+    // Get top 5 earliest voters
+    const [topVoters] = await pool.execute(
+      `SELECT v.voted_at, u.id, u.username, u.email, u.avatar_url
+       FROM votes v
+       JOIN users u ON v.user_id = u.id
+       WHERE v.poll_id = ?
+       ORDER BY v.voted_at ASC
+       LIMIT 5`,
+      [poll.id]
+    );
+
+    // Parse options
+    let options = poll.options;
+    if (typeof options === 'string') {
+      options = JSON.parse(options);
+      if (typeof options === 'string') {
+        options = JSON.parse(options);
+      }
+    }
+
+    return {
+      pollId: poll.id,
+      question: poll.question,
+      pollType: poll.poll_type,
+      status: poll.status,
+      endTime: poll.end_time,
+      totalVotes,
+      totalMembers,
+      participationRate: parseFloat(participationRate.toFixed(2)),
+      topVoters: topVoters.map(v => ({
+        id: v.id,
+        name: v.username,
+        email: v.email,
+        avatar: v.avatar_url,
+        votedAt: v.voted_at
+      }))
+    };
+  }));
+
+  return {
+    groupId,
+    totalMembers,
+    polls: pollStats
+  };
+};
+
 module.exports = {
   calculateResults,
   checkPollAccess,
+  checkResultsAccess,
   getPollStats,
+  getGroupStatistics,
 };

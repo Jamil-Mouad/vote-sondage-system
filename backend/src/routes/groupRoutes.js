@@ -16,5 +16,6 @@ router.get('/:id/requests', authenticateToken, groupController.getPendingRequest
 router.put('/:id/requests/:requestId', authenticateToken, groupController.handleJoinRequest);
 router.delete('/:id', authenticateToken, groupController.deleteGroup);
 router.get('/:id/polls', authenticateToken, groupController.getGroupPolls);
+router.get('/:id/statistics', authenticateToken, groupController.getGroupStatisticsController);
 
 module.exports = router;

@@ -5,7 +5,7 @@ const Group = {
     const { name, description, isPublic, createdBy } = groupData;
     const [result] = await pool.execute(
       'INSERT INTO groups (name, description, is_public, created_by) VALUES (?, ?, ?, ?)',
-      [name, description, isPublic, createdBy]
+      [name, description || null, isPublic !== undefined ? isPublic : true, createdBy]
     );
     return result.insertId;
   },

@@ -7,12 +7,13 @@ import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
 import { LoginRequiredModal } from "@/components/auth/login-required-modal"
+import { PollTypeBadge } from "@/components/polls/poll-type-badge"
 import { useAuthStore } from "@/store/auth-store"
 import { usePollStore, type Poll, type PollOption } from "@/store/poll-store"
 import { toast } from "sonner"
 import { useCountdown } from "@/hooks/use-countdown"
 import { cn } from "@/lib/utils"
-import { Clock, Users, MoreHorizontal, Share2, Flag, Check, Trophy } from "lucide-react"
+import { Clock, Users, MoreHorizontal, Share2, Flag, Check, Trophy, Lock } from "lucide-react"
 
 interface PollCardProps {
   poll: Poll
@@ -46,7 +47,28 @@ export function PollCard({ poll, onVote }: PollCardProps) {
     }
   })
 
-  const showResults = localPoll.hasVoted || isEnded || isCreator
+  // Utiliser canSeeResults du backend si disponible, sinon calculer localement
+  const canSeeResults = () => {
+    if (localPoll.canSeeResults !== undefined) {
+      return localPoll.canSeeResults
+    }
+
+    // Logique de fallback locale (similaire au backend)
+    if (localPoll.pollType === 'vote') {
+      // Vote: résultats uniquement après la fin ET si l'utilisateur a voté
+      return isEnded && (localPoll.hasVoted || isCreator)
+    }
+
+    if (localPoll.pollType === 'binary_poll' && !localPoll.isPublic) {
+      // Binary poll privé: temps réel pour les votants
+      return localPoll.hasVoted || isCreator || isEnded
+    }
+
+    // Sondage standard: afficher si voté ou terminé
+    return localPoll.showResultsOnVote && (localPoll.hasVoted || isCreator || isEnded)
+  }
+
+  const showResults = canSeeResults()
 
   const formatTimeAgo = (dateString: string) => {
     const date = new Date(dateString)
@@ -163,6 +185,7 @@ export function PollCard({ poll, onVote }: PollCardProps) {
           </div>
 
           <div className="flex items-center gap-2">
+            <PollTypeBadge type={poll.pollType} className="text-xs" />
             {isCreator && (
               <Badge variant="secondary" className="text-xs">
                 Créateur
@@ -214,6 +237,17 @@ export function PollCard({ poll, onVote }: PollCardProps) {
 
         {/* Options */}
         <div className="px-4 pb-4 space-y-2">
+          {!showResults && localPoll.hasVoted && localPoll.pollType === 'vote' && !isEnded && (
+            <div className="p-4 text-center rounded-lg bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-900 mb-3">
+              <Lock className="h-6 w-6 mx-auto mb-2 text-amber-600" />
+              <p className="text-sm font-medium text-amber-700 dark:text-amber-400">
+                Résultats masqués jusqu'à la fin du vote
+              </p>
+              <p className="text-xs text-amber-600/80 dark:text-amber-500/80 mt-1">
+                Seuls les participants pourront voir les résultats une fois le vote terminé
+              </p>
+            </div>
+          )}
           {optionsWithStats.map((option) => {
             const isMyVote = localPoll.myVote !== null && Number(localPoll.myVote) === Number(option.index)
             const isWinner = isEnded && winningOption?.index === option.index

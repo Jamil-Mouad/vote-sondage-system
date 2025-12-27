@@ -17,11 +17,34 @@ export interface Group {
   polls?: any[] // Simplified for now
 }
 
+export interface GroupStatistics {
+  groupId: number
+  totalMembers: number
+  polls: {
+    pollId: number
+    question: string
+    pollType: "poll" | "vote" | "binary_poll"
+    status: "active" | "ended" | "cancelled"
+    endTime: string
+    totalVotes: number
+    totalMembers: number
+    participationRate: number
+    topVoters: {
+      id: number
+      name: string
+      email: string
+      avatar?: string
+      votedAt: string
+    }[]
+  }[]
+}
+
 interface GroupState {
   groups: Group[]
   myGroups: { created: Group[]; joined: Group[] }
   currentGroup: Group | null
   currentGroupRequests: any[]
+  currentStatistics: GroupStatistics | null
   isLoading: boolean
   error: string | null
 
@@ -29,6 +52,7 @@ interface GroupState {
   fetchPublicGroups: (search?: string) => Promise<void>
   fetchMyGroups: () => Promise<void>
   fetchGroupById: (id: number) => Promise<Group | null>
+  fetchGroupStatistics: (id: number) => Promise<GroupStatistics | null>
   createGroup: (data: { name: string; description?: string; isPublic: boolean }) => Promise<{ success: boolean; groupId?: number; error?: string }>
   joinGroup: (id: number) => Promise<boolean>
   leaveGroup: (id: number) => Promise<boolean>
@@ -65,6 +89,7 @@ export const useGroupStore = create<GroupState>((set, get) => ({
   myGroups: { created: [], joined: [] },
   currentGroup: null,
   currentGroupRequests: [],
+  currentStatistics: null,
   isLoading: false,
   error: null,
 
@@ -109,6 +134,23 @@ export const useGroupStore = create<GroupState>((set, get) => ({
         return group
       } else {
         set({ error: response.message || "Groupe non trouvé", isLoading: false })
+        return null
+      }
+    } catch (error: any) {
+      set({ error: error.message || "Erreur réseau", isLoading: false })
+      return null
+    }
+  },
+
+  fetchGroupStatistics: async (id) => {
+    set({ isLoading: true, error: null })
+    try {
+      const response = await apiRequest<GroupStatistics>(`/groups/${id}/statistics`)
+      if (response.success && response.data) {
+        set({ currentStatistics: response.data, isLoading: false })
+        return response.data
+      } else {
+        set({ error: response.message || "Statistiques non disponibles", isLoading: false })
         return null
       }
     } catch (error: any) {

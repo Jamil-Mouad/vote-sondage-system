@@ -15,7 +15,7 @@ import {
 import { toast } from "sonner"
 import { usePollStore } from "@/store/poll-store"
 import { useGroupStore } from "@/store/group-store"
-import { Vote, Plus, Trash2, Loader2, AlertCircle, Users } from "lucide-react"
+import { Vote, Plus, Trash2, Loader2, AlertCircle, Users, CheckCircle2 } from "lucide-react"
 
 interface CreatePollModalProps {
   open: boolean
@@ -36,6 +36,8 @@ export function CreatePollModal({ open, onOpenChange, onSuccess, groupId }: Crea
     endTime: "",
     visibility: groupId ? "private" : "public" as "public" | "private",
     selectedGroupId: groupId?.toString() || "",
+    pollType: "poll" as "poll" | "vote",
+    isBinary: false,
   })
 
   useEffect(() => {
@@ -78,10 +80,13 @@ export function CreatePollModal({ open, onOpenChange, onSuccess, groupId }: Crea
       return
     }
 
-    const validOptions = formData.options.filter((o) => o.trim())
-    if (validOptions.length < 2) {
-      toast.error("Veuillez entrer au moins 2 options")
-      return
+    // Pour les sondages binaires, ne pas vérifier les options
+    if (!formData.isBinary) {
+      const validOptions = formData.options.filter((o) => o.trim())
+      if (validOptions.length < 2) {
+        toast.error("Veuillez entrer au moins 2 options")
+        return
+      }
     }
 
     if (!formData.endDate || !formData.endTime) {
@@ -103,17 +108,20 @@ export function CreatePollModal({ open, onOpenChange, onSuccess, groupId }: Crea
     setIsLoading(true)
 
     try {
+      const validOptions = formData.options.filter((o) => o.trim())
       const result = await createPoll({
         question: formData.question,
         description: formData.description || undefined,
-        options: validOptions.map(text => ({ text })),
+        options: formData.isBinary ? [{ text: 'Oui' }, { text: 'Non' }] : validOptions.map(text => ({ text })),
         endTime: endTime.toISOString(),
         isPublic: formData.visibility === "public",
         groupId: formData.visibility === "private" ? parseInt(formData.selectedGroupId) : undefined,
-      })
+        pollType: formData.pollType,
+        isBinary: formData.isBinary,
+      } as any)
 
       if (result.success) {
-        toast.success("Sondage créé avec succès !")
+        toast.success(formData.isBinary ? "Sondage binaire créé avec succès !" : "Sondage créé avec succès !")
         onOpenChange(false)
         onSuccess?.()
 
@@ -126,6 +134,8 @@ export function CreatePollModal({ open, onOpenChange, onSuccess, groupId }: Crea
           endTime: "",
           visibility: groupId ? "private" : "public",
           selectedGroupId: groupId?.toString() || "",
+          pollType: "poll",
+          isBinary: false,
         })
       } else {
         toast.error(result.error || "Erreur lors de la création")
@@ -175,48 +185,124 @@ export function CreatePollModal({ open, onOpenChange, onSuccess, groupId }: Crea
             />
           </div>
 
-          <div className="space-y-3">
-            <Label className="text-sm font-semibold">Options de réponse *</Label>
-            <div className="grid gap-3">
-              {formData.options.map((option, index) => (
-                <div key={index} className="flex gap-2">
-                  <div className="relative flex-1">
-                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-xs font-bold text-muted-foreground/50">
-                      {index + 1}
-                    </span>
-                    <Input
-                      placeholder={`Option ${index + 1}${index < 2 ? " *" : ""}`}
-                      value={option}
-                      onChange={(e) => updateOption(index, e.target.value)}
-                      className="pl-8 bg-card border-primary/10 focus-visible:border-primary/30"
-                      required={index < 2}
-                    />
-                  </div>
-                  {index >= 2 && (
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      size="icon"
-                      onClick={() => removeOption(index)}
-                      className="text-red-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-950/20"
-                    >
-                      <Trash2 className="h-4 w-4" />
-                    </Button>
-                  )}
-                </div>
-              ))}
-            </div>
-            {formData.options.length < 4 && (
+          <div className="space-y-2 p-4 rounded-lg border border-primary/20 bg-primary/5">
+            <Label className="text-sm font-semibold">Type de sondage</Label>
+
+            {/* Option Sondage Binaire */}
+            <div className="flex items-center gap-2">
               <Button
                 type="button"
-                variant="outline"
-                size="sm"
-                onClick={addOption}
-                className="w-full bg-transparent border-dashed border-primary/20 hover:border-primary/40 text-primary"
+                variant={formData.isBinary ? "default" : "outline"}
+                onClick={() => setFormData({
+                  ...formData,
+                  isBinary: !formData.isBinary,
+                  options: formData.isBinary ? ["", ""] : ["Oui", "Non"]
+                })}
+                className="flex-1"
               >
-                <Plus className="h-4 w-4 mr-2" />
-                Ajouter une option supplémentaire
+                <CheckCircle2 className="h-4 w-4 mr-2" />
+                Sondage Binaire (Oui/Non)
               </Button>
+            </div>
+
+            {formData.isBinary && (
+              <div className="p-3 rounded-lg bg-green-50 dark:bg-green-950/20 border border-green-200 dark:border-green-900">
+                <p className="text-sm text-green-700 dark:text-green-400">
+                  ✓ Les options seront automatiquement "Oui" et "Non"
+                </p>
+              </div>
+            )}
+
+            {/* Option Vote (uniquement pour groupes privés) */}
+            {formData.visibility === "private" && formData.selectedGroupId && !formData.isBinary && (
+              <div className="pt-2">
+                <RadioGroup
+                  value={formData.pollType}
+                  onValueChange={(value: "poll" | "vote") => setFormData({ ...formData, pollType: value })}
+                  className="flex flex-col gap-2"
+                >
+                  <div className={`flex items-center space-x-3 p-3 rounded-lg border transition-colors ${formData.pollType === 'poll' ? 'border-primary bg-background' : 'border-border'}`}>
+                    <RadioGroupItem value="poll" id="poll" />
+                    <Label htmlFor="poll" className="font-medium cursor-pointer flex-1">
+                      Sondage standard
+                      <span className="block text-xs text-muted-foreground font-normal">Les résultats sont visibles en temps réel</span>
+                    </Label>
+                  </div>
+                  <div className={`flex items-center space-x-3 p-3 rounded-lg border transition-colors ${formData.pollType === 'vote' ? 'border-primary bg-background' : 'border-border'}`}>
+                    <RadioGroupItem value="vote" id="vote" />
+                    <Label htmlFor="vote" className="font-medium cursor-pointer flex-1">
+                      Vote (résultats masqués)
+                      <span className="block text-xs text-muted-foreground font-normal">Les résultats sont masqués jusqu'à la fin, seuls les votants peuvent les voir</span>
+                    </Label>
+                  </div>
+                </RadioGroup>
+              </div>
+            )}
+          </div>
+
+          <div className="space-y-3">
+            <Label className="text-sm font-semibold">Options de réponse *</Label>
+            {formData.isBinary ? (
+              <div className="p-4 rounded-lg bg-green-50 dark:bg-green-950/20 border border-green-200 dark:border-green-900">
+                <div className="flex items-center gap-3 mb-2">
+                  <CheckCircle2 className="h-5 w-5 text-green-600" />
+                  <span className="font-semibold text-green-700 dark:text-green-400">Options automatiques :</span>
+                </div>
+                <div className="grid gap-2 ml-8">
+                  <div className="flex items-center gap-2">
+                    <span className="text-sm font-bold text-green-600">1.</span>
+                    <span className="text-sm text-green-700 dark:text-green-400">Oui</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <span className="text-sm font-bold text-green-600">2.</span>
+                    <span className="text-sm text-green-700 dark:text-green-400">Non</span>
+                  </div>
+                </div>
+              </div>
+            ) : (
+              <>
+                <div className="grid gap-3">
+                  {formData.options.map((option, index) => (
+                    <div key={index} className="flex gap-2">
+                      <div className="relative flex-1">
+                        <span className="absolute left-3 top-1/2 -translate-y-1/2 text-xs font-bold text-muted-foreground/50">
+                          {index + 1}
+                        </span>
+                        <Input
+                          placeholder={`Option ${index + 1}${index < 2 ? " *" : ""}`}
+                          value={option}
+                          onChange={(e) => updateOption(index, e.target.value)}
+                          className="pl-8 bg-card border-primary/10 focus-visible:border-primary/30"
+                          required={index < 2}
+                        />
+                      </div>
+                      {index >= 2 && (
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="icon"
+                          onClick={() => removeOption(index)}
+                          className="text-red-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-950/20"
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                      )}
+                    </div>
+                  ))}
+                </div>
+                {formData.options.length < 4 && (
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={addOption}
+                    className="w-full bg-transparent border-dashed border-primary/20 hover:border-primary/40 text-primary"
+                  >
+                    <Plus className="h-4 w-4 mr-2" />
+                    Ajouter une option supplémentaire
+                  </Button>
+                )}
+              </>
             )}
           </div>
 

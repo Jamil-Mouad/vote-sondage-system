@@ -11,6 +11,7 @@ router.get('/:id/stats', authenticateToken, pollController.getPollStats);
 router.put('/:id', authenticateToken, pollController.updatePoll);
 router.delete('/:id', authenticateToken, pollController.cancelPoll);
 router.get('/history', authenticateToken, pollController.getPollHistory);
+router.get('/history/enhanced', authenticateToken, pollController.getEnhancedHistory);
 
 // Public routes with optional auth (to check if user has voted)
 router.get('/public', optionalAuth, pollController.listPublicPolls);

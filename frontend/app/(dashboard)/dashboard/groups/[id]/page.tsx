@@ -154,15 +154,21 @@ export default function GroupDetailPage({ params }: { params: Promise<{ id: stri
                 </div>
               </div>
 
-              <div className="flex gap-2">
+              <div className="flex flex-col gap-2">
                 {group.myRole === "admin" ? (
                   <>
-                    <Button className="flex-1 rounded-xl h-11 font-bold shadow-lg shadow-primary/20" onClick={() => setShowInvite(true)} style={{ background: 'linear-gradient(135deg, var(--primary), var(--primary-700))' }}>
-                      <UserPlus className="mr-2 h-4 w-4" />
-                      Inviter
-                    </Button>
-                    <Button variant="outline" size="icon" className="h-11 w-11 rounded-xl border-primary/20 text-primary hover:bg-primary/5">
-                      <Settings className="h-5 w-5" />
+                    <div className="flex gap-2">
+                      <Button className="flex-1 rounded-xl h-11 font-bold shadow-lg shadow-primary/20" onClick={() => setShowInvite(true)} style={{ background: 'linear-gradient(135deg, var(--primary), var(--primary-700))' }}>
+                        <UserPlus className="mr-2 h-4 w-4" />
+                        Inviter
+                      </Button>
+                      <Button variant="outline" size="icon" className="h-11 w-11 rounded-xl border-primary/20 text-primary hover:bg-primary/5">
+                        <Settings className="h-5 w-5" />
+                      </Button>
+                    </div>
+                    <Button variant="outline" className="w-full rounded-xl h-11 border-amber-200 dark:border-amber-900 text-amber-600 dark:text-amber-500 hover:bg-amber-50 dark:hover:bg-amber-950/20" onClick={() => router.push(`/dashboard/groups/${group.id}/statistics`)}>
+                      <BarChart3 className="mr-2 h-4 w-4" />
+                      Voir les statistiques
                     </Button>
                   </>
                 ) : (

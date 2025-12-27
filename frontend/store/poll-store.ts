@@ -17,6 +17,9 @@ export interface Poll {
   status: "active" | "ended" | "cancelled"
   isPublic: boolean
   groupId?: number
+  pollType: "poll" | "vote" | "binary_poll"
+  showResultsOnVote: boolean
+  canSeeResults?: boolean
   totalVotes: number
   createdBy: number
   creatorName?: string
@@ -57,6 +60,8 @@ interface PollState {
   polls: Poll[]
   myPolls: Poll[]
   history: { activePolls: Poll[]; endedPolls: Poll[] }
+  votesHistory: Poll[]
+  pollsHistory: Poll[]
   currentPoll: Poll | null
   currentStats: PollStats | null
   isLoading: boolean
@@ -74,6 +79,7 @@ interface PollState {
   fetchPollStats: (id: number) => Promise<PollStats | null>
   fetchGroupPolls: (groupId: number) => Promise<void>
   fetchHistory: () => Promise<void>
+  fetchEnhancedHistory: () => Promise<void>
   createPoll: (data: {
     question: string
     description?: string
@@ -81,6 +87,8 @@ interface PollState {
     endTime: string
     isPublic: boolean
     groupId?: number
+    pollType?: "poll" | "vote" | "binary_poll"
+    isBinary?: boolean
   }) => Promise<{ success: boolean; pollId?: number; error?: string }>
   updatePoll: (id: number, data: { question?: string; description?: string; endTime?: string }) => Promise<boolean>
   cancelPoll: (id: number) => Promise<boolean>
@@ -127,6 +135,9 @@ const mapPollData = (data: any, currentUserId?: number): Poll => {
     status: data.status,
     isPublic: data.is_public !== undefined ? !!data.is_public : !!data.isPublic,
     groupId: data.group_id || data.groupId,
+    pollType: data.poll_type || data.pollType || 'poll',
+    showResultsOnVote: data.show_results_on_vote !== undefined ? !!data.show_results_on_vote : (data.showResultsOnVote !== undefined ? !!data.showResultsOnVote : true),
+    canSeeResults: data.canSeeResults,
     totalVotes: data.totalVotes || 0,
     createdBy: data.created_by || data.createdBy,
     creatorName: data.creator_name || data.creatorName,
@@ -146,6 +157,8 @@ export const usePollStore = create<PollState>((set, get) => ({
   polls: [],
   myPolls: [],
   history: { activePolls: [], endedPolls: [] },
+  votesHistory: [],
+  pollsHistory: [],
   currentPoll: null,
   currentStats: null,
   isLoading: false,
@@ -430,6 +443,32 @@ export const usePollStore = create<PollState>((set, get) => ({
     } catch (error: any) {
       set({ error: error.message || "Erreur réseau", isLoading: false })
       throw error
+    }
+  },
+
+  fetchEnhancedHistory: async () => {
+    set({ isLoading: true, error: null })
+    try {
+      const response = await apiRequest<{ votes: any[]; polls: any[] }>(`/polls/history/enhanced`)
+
+      if (response.success && response.data) {
+        let userId: number | undefined
+        const authStorage = localStorage.getItem("auth-storage")
+        if (authStorage) {
+          const parsed = JSON.parse(authStorage)
+          if (parsed.state?.user?.id) userId = Number(parsed.state.user.id)
+        }
+
+        set({
+          votesHistory: response.data.votes.map(v => mapPollData(v, userId)),
+          pollsHistory: response.data.polls.map(p => mapPollData(p, userId)),
+          isLoading: false
+        })
+      } else {
+        set({ error: response.message || "Erreur lors du chargement", isLoading: false })
+      }
+    } catch (error: any) {
+      set({ error: error.message || "Erreur réseau", isLoading: false })
     }
   },
 

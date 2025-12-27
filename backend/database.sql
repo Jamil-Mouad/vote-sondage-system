@@ -69,10 +69,13 @@ CREATE TABLE IF NOT EXISTS polls (
     id INT AUTO_INCREMENT PRIMARY KEY,
     question VARCHAR(255) NOT NULL,
     description TEXT,
+    options JSON NOT NULL,
     is_public BOOLEAN DEFAULT TRUE,
     group_id INT,
     created_by INT NOT NULL,
     status ENUM('active', 'ended', 'cancelled') DEFAULT 'active',
+    poll_type ENUM('poll', 'vote', 'binary_poll') DEFAULT 'poll',
+    show_results_on_vote BOOLEAN DEFAULT TRUE,
     end_time DATETIME NOT NULL,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
@@ -119,6 +122,7 @@ CREATE TABLE IF NOT EXISTS support_messages (
 -- Index pour améliorer les performances
 CREATE INDEX idx_polls_status ON polls(status);
 CREATE INDEX idx_polls_end_time ON polls(end_time);
+CREATE INDEX idx_polls_poll_type ON polls(poll_type);
 CREATE INDEX idx_group_members_status ON group_members(status);
 CREATE INDEX idx_votes_poll_id ON votes(poll_id);
 CREATE INDEX idx_code_verifications_user ON code_verifications(user_id);

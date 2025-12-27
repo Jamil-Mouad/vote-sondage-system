@@ -3,7 +3,7 @@ const Vote = require('../models/Vote');
 const Group = require('../models/Group');
 const GroupMember = require('../models/GroupMember');
 const { success, error } = require('../utils/responseHandler');
-const { calculateResults, checkPollAccess, getPollStats: getPollStatsService } = require('../services/pollService');
+const { calculateResults, checkPollAccess, checkResultsAccess, getPollStats: getPollStatsService } = require('../services/pollService');
 const { emitPollUpdated, emitPollEnded, notifyGroup } = require('../services/socketService'); // Assuming these exist in socketService
 
 // Helper function to safely parse options (handles double-encoded JSON)
@@ -22,32 +22,59 @@ const parseOptions = (options) => {
 
 const createPoll = async (req, res) => {
   try {
-    const { question, description, options, endTime, isPublic, groupId } = req.body;
+    const { question, description, options, endTime, isPublic, groupId, pollType, isBinary } = req.body;
     const createdBy = req.user.id;
 
-    if (groupId) {
+    // Déterminer le type de poll
+    let finalPollType = pollType || 'poll';
+    let finalOptions = options;
+
+    // Si c'est un sondage binaire, auto-générer les options Oui/Non
+    if (isBinary) {
+      finalPollType = 'binary_poll';
+      finalOptions = [{ text: 'Oui' }, { text: 'Non' }];
+    }
+
+    // Les votes DOIVENT être dans un groupe et l'utilisateur doit être admin
+    if (finalPollType === 'vote') {
+      if (!groupId) {
+        return error(res, 'Les votes doivent être créés dans un groupe.', 400, 'GROUP_REQUIRED');
+      }
       const groupMember = await GroupMember.findByGroupAndUser(groupId, createdBy);
       if (!groupMember || groupMember.status !== 'approved' || groupMember.role !== 'admin') {
-        return error(res, 'Only group admins can create polls in this group.', 403, 'GROUP_ADMIN_REQUIRED');
+        return error(res, 'Seuls les admins du groupe peuvent créer des votes.', 403, 'ADMIN_REQUIRED');
       }
     }
+
+    // Pour les polls de groupe (non-vote), vérifier le rôle admin
+    if (groupId && finalPollType !== 'vote') {
+      const groupMember = await GroupMember.findByGroupAndUser(groupId, createdBy);
+      if (!groupMember || groupMember.status !== 'approved' || groupMember.role !== 'admin') {
+        return error(res, 'Seuls les admins du groupe peuvent créer des sondages dans ce groupe.', 403, 'GROUP_ADMIN_REQUIRED');
+      }
+    }
+
+    // Définir show_results_on_vote selon le type
+    const showResultsOnVote = finalPollType === 'vote' ? false : true;
 
     const pollId = await Poll.create({
       question,
       description,
-      options: options.map(opt => opt.text), // Pass raw array of strings
+      options: finalOptions.map(opt => opt.text || opt), // Pass raw array of strings
       endTime: new Date(endTime),
-      isPublic: isPublic || false,
+      isPublic: finalPollType === 'vote' ? false : (isPublic || false), // Les votes sont toujours privés
       createdBy,
       groupId: groupId || null,
+      pollType: finalPollType,
+      showResultsOnVote,
     });
 
     // If it's a group poll, notify the group
     if (groupId) {
-      notifyGroup(groupId, 'group:new-poll', { pollId, question });
+      notifyGroup(groupId, 'group:new-poll', { pollId, question, pollType: finalPollType });
     }
 
-    success(res, { pollId }, 'Poll created successfully.', 201);
+    success(res, { pollId }, `${finalPollType === 'vote' ? 'Vote' : 'Sondage'} créé avec succès.`, 201);
   } catch (err) {
     error(res, err.message, 500, 'POLL_CREATION_FAILED');
   }
@@ -80,14 +107,14 @@ const listPublicPolls = async (req, res) => {
       // Parse options from JSON string back to array
       poll.options = parseOptions(poll.options);
 
-      // Get results if user has voted or poll ended
+      // Utiliser checkResultsAccess pour déterminer si on peut voir les résultats
       let results = null;
-      const isEnded = new Date(poll.end_time) <= new Date() || poll.status === 'ended';
-      if (hasVoted || isEnded) {
+      const canSeeResults = await checkResultsAccess(poll.id, req.user ? req.user.id : null);
+      if (canSeeResults) {
         results = await calculateResults(poll.id);
       }
 
-      return { ...poll, totalVotes, hasVoted, myVote, results };
+      return { ...poll, totalVotes, hasVoted, myVote, results, canSeeResults };
     }));
 
     success(res, polls, 'Public polls retrieved successfully.');
@@ -114,17 +141,18 @@ const getPollById = async (req, res) => {
 
     let results = null;
     const userVoted = userId ? await Vote.findByPollAndUser(id, userId) : null;
-    const isCreator = poll.created_by === userId;
-    const isEnded = new Date(poll.end_time) <= new Date();
 
-    if (isEnded || userVoted || isCreator) {
+    // Utiliser checkResultsAccess pour déterminer si on peut voir les résultats
+    const canSeeResults = await checkResultsAccess(id, userId);
+
+    if (canSeeResults) {
       results = await calculateResults(id);
     }
 
     // Parse options
     poll.options = parseOptions(poll.options);
 
-    success(res, { ...poll, results, hasVoted: !!userVoted }, 'Poll details retrieved successfully.');
+    success(res, { ...poll, results, hasVoted: !!userVoted, canSeeResults }, 'Poll details retrieved successfully.');
   } catch (err) {
     error(res, err.message, 500, 'FETCH_POLL_DETAILS_FAILED');
   }
@@ -292,4 +320,52 @@ module.exports = {
   updatePoll,
   cancelPoll,
   getPollHistory,
+};
+
+const getEnhancedHistory = async (req, res) => {
+  try {
+    const userId = req.user.id;
+
+    // Get all votes (type='vote') where user participated
+    const votedVotes = await Poll.findVotesByUser(userId);
+
+    // Get all polls (type='poll' or 'binary_poll') where user participated
+    const votedPolls = await Vote.findPollsByUser(userId);
+
+    // Filter to only include polls and binary_polls (exclude votes)
+    const filteredPolls = votedPolls.filter(v => {
+      return v.poll_type === 'poll' || v.poll_type === 'binary_poll';
+    });
+
+    // Map and enhance data
+    const votes = votedVotes.map(v => ({
+      ...v,
+      options: parseOptions(v.options),
+      myVote: v.myVote,
+      isEnded: new Date(v.end_time) <= new Date() || v.status === 'ended'
+    }));
+
+    const polls = filteredPolls.map(p => ({
+      ...p,
+      options: parseOptions(p.options),
+      myVote: p.option_selected,
+      isEnded: new Date(p.end_time) <= new Date() || p.status === 'ended'
+    }));
+
+    success(res, { votes, polls }, 'History retrieved successfully.');
+  } catch (err) {
+    error(res, err.message, 500, 'FETCH_HISTORY_FAILED');
+  }
+};
+
+module.exports = {
+  createPoll,
+  listPublicPolls,
+  getPollById,
+  getMyPolls,
+  getPollStats,
+  updatePoll,
+  cancelPoll,
+  getPollHistory,
+  getEnhancedHistory,
 };

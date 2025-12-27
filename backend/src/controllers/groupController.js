@@ -3,7 +3,7 @@ const GroupMember = require('../models/GroupMember');
 const Poll = require('../models/Poll');
 const Notification = require('../models/Notification');
 const Vote = require('../models/Vote');
-const { calculateResults } = require('../services/pollService');
+const { calculateResults, getGroupStatistics } = require('../services/pollService');
 const { success, error } = require('../utils/responseHandler');
 const { notifyGroup } = require('../services/socketService');
 
@@ -301,6 +301,32 @@ const getGroupPolls = async (req, res) => {
   }
 };
 
+const getGroupStatisticsController = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const userId = req.user.id;
+
+    const group = await Group.findById(id);
+    if (!group) {
+      return error(res, 'Group not found.', 404, 'GROUP_NOT_FOUND');
+    }
+
+    // Check if user is admin of this group
+    const member = await GroupMember.findByGroupAndUser(id, userId);
+    const isCreator = group.created_by === userId;
+
+    if (!isCreator && (!member || member.role !== 'admin')) {
+      return error(res, 'Forbidden: Only group admins can view statistics.', 403, 'ADMIN_REQUIRED');
+    }
+
+    const stats = await getGroupStatistics(id);
+
+    success(res, stats, 'Group statistics retrieved successfully.');
+  } catch (err) {
+    error(res, err.message, 500, 'FETCH_GROUP_STATS_FAILED');
+  }
+};
+
 module.exports = {
   createGroup,
   listPublicGroups,
@@ -312,4 +338,5 @@ module.exports = {
   handleJoinRequest,
   deleteGroup,
   getGroupPolls,
+  getGroupStatisticsController,
 };

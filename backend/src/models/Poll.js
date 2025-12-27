@@ -2,10 +2,10 @@ const { pool } = require('../config/database');
 
 const Poll = {
   create: async (pollData) => {
-    const { question, description, options, endTime, isPublic, createdBy, groupId } = pollData;
+    const { question, description, options, endTime, isPublic, createdBy, groupId, pollType, showResultsOnVote } = pollData;
     const [result] = await pool.execute(
-      'INSERT INTO polls (question, description, options, end_time, is_public, created_by, group_id) VALUES (?, ?, ?, ?, ?, ?, ?)',
-      [question, description, JSON.stringify(options), endTime, isPublic, createdBy, groupId]
+      'INSERT INTO polls (question, description, options, end_time, is_public, created_by, group_id, poll_type, show_results_on_vote) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)',
+      [question, description, JSON.stringify(options), endTime, isPublic, createdBy, groupId, pollType || 'poll', showResultsOnVote !== undefined ? showResultsOnVote : true]
     );
     return result.insertId;
   },
@@ -229,6 +229,48 @@ const Poll = {
       totalCreated: created[0].count,
       activeCreated: activeCreated[0].count,
     };
+  },
+
+  // Find votes where user participated
+  findVotesByUser: async (userId) => {
+    const [rows] = await pool.execute(
+      `SELECT p.*, u.username as creatorName, u.avatar_url as creatorAvatar,
+       (SELECT COUNT(*) FROM votes v WHERE v.poll_id = p.id) as totalVotes,
+       v.option_selected as myVote, v.voted_at
+       FROM polls p
+       LEFT JOIN users u ON p.created_by = u.id
+       JOIN votes v ON p.id = v.poll_id
+       WHERE v.user_id = ? AND p.poll_type = 'vote'
+       ORDER BY v.voted_at DESC`,
+      [userId]
+    );
+    return rows;
+  },
+
+  // Find polls by type
+  findByType: async (type, filters = {}) => {
+    let query = `
+      SELECT p.*, u.username as creatorName, u.avatar_url as creatorAvatar,
+      (SELECT COUNT(*) FROM votes v WHERE v.poll_id = p.id) as totalVotes
+      FROM polls p
+      LEFT JOIN users u ON p.created_by = u.id
+      WHERE p.poll_type = ?`;
+    const params = [type];
+
+    if (filters.status && filters.status !== 'all') {
+      query += ' AND p.status = ?';
+      params.push(filters.status);
+    }
+
+    if (filters.groupId) {
+      query += ' AND p.group_id = ?';
+      params.push(filters.groupId);
+    }
+
+    query += ' ORDER BY p.created_at DESC';
+
+    const [rows] = await pool.execute(query, params);
+    return rows;
   },
 };
 
