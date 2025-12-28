@@ -89,3 +89,4 @@ GroupMember.js
 | `removeMember`       | Supprimer un membre du groupe              |
 
 
+Projet finalisé
