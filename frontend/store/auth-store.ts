@@ -1,10 +1,11 @@
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
 
-interface User {
+export interface User {
   id: string
   name: string
   email: string
+  username?: string
   avatar?: string
   phone?: string
   bio?: string
@@ -17,7 +18,8 @@ interface AuthState {
   token: string | null
   isAuthenticated: boolean
   isLoading: boolean
-  login: (email: string, password: string) => Promise<void>
+  isHydrated: boolean
+  login: (email: string, password: string, rememberMe?: boolean) => Promise<void>
   logout: () => void
   updateProfile: (data: Partial<User>) => Promise<void>
   changePassword: (currentPassword: string, newPassword: string) => Promise<void>
@@ -35,29 +37,30 @@ export const useAuthStore = create<AuthState>()(
       token: null,
       isAuthenticated: false,
       isLoading: false,
+      isHydrated: false,
 
-      login: async (email: string, password: string) => {
+      login: async (email: string, password: string, rememberMe: boolean = false) => {
         const response = await fetch(`${API_URL}/auth/login`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ email, password }),
+          body: JSON.stringify({ email, password, rememberMe }),
         })
-        
+
         const result = await response.json()
-        
+
         if (!response.ok || !result.success) {
           throw new Error(result.message || 'Login failed')
         }
-        
+
         const userData = result.data
-        set({ 
+        set({
           user: {
             id: userData.userId,
             name: userData.username,
             email: userData.email,
-          }, 
-          token: userData.accessToken, 
-          isAuthenticated: true 
+          },
+          token: userData.accessToken,
+          isAuthenticated: true
         })
       },
 
@@ -87,7 +90,7 @@ export const useAuthStore = create<AuthState>()(
 
           const data = await response.json()
           const userData = data.data.user
-          set({ 
+          set({
             user: {
               id: userData.id,
               name: `${userData.firstName || ''} ${userData.lastName || ''}`.trim() || userData.username,
@@ -101,6 +104,9 @@ export const useAuthStore = create<AuthState>()(
           })
         } catch (error) {
           console.error('Fetch profile error:', error)
+          if (error instanceof Error && error.message.includes('401')) {
+            get().logout()
+          }
         } finally {
           set({ isLoading: false })
         }
@@ -136,8 +142,8 @@ export const useAuthStore = create<AuthState>()(
 
         const result = await response.json()
         const updatedUser = result.data.user
-        
-        set({ 
+
+        set({
           user: {
             ...get().user,
             id: updatedUser.id,
@@ -174,14 +180,14 @@ export const useAuthStore = create<AuthState>()(
 
         const result = await response.json()
         const avatarUrl = result.data.user.avatarUrl
-        
-        set({ 
-          user: { 
-            ...get().user, 
-            avatar: avatarUrl 
-          } as User 
+
+        set({
+          user: {
+            ...get().user,
+            avatar: avatarUrl
+          } as User
         })
-        
+
         return avatarUrl
       },
 
@@ -206,10 +212,15 @@ export const useAuthStore = create<AuthState>()(
     }),
     {
       name: 'auth-storage',
-      partialize: (state) => ({ 
-        user: state.user, 
-        token: state.token, 
-        isAuthenticated: state.isAuthenticated 
+      onRehydrateStorage: () => (state) => {
+        if (state) {
+          state.isHydrated = true
+        }
+      },
+      partialize: (state) => ({
+        user: state.user,
+        token: state.token,
+        isAuthenticated: state.isAuthenticated
       }),
     }
   )

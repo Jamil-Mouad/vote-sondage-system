@@ -15,7 +15,7 @@ import Link from "next/link"
 import { useGroupStore } from "@/store/group-store"
 import { usePollStore } from "@/store/poll-store"
 import { useAuthStore } from "@/store/auth-store"
-import { ArrowLeft, Users, BarChart3, Plus, Settings, UserPlus, Crown, Shield, Copy, Check, Loader2, Clock, Share2, Globe, Lock } from "lucide-react"
+import { ArrowLeft, Users, BarChart3, Plus, Settings, UserPlus, Crown, Shield, Copy, Check, Loader2, Clock, Share2, Globe, Lock, CheckCircle2 } from "lucide-react"
 import { toast } from "sonner"
 import { Label } from "@/components/ui/label"
 import { cn } from "@/lib/utils"
@@ -28,6 +28,7 @@ export default function GroupDetailPage({ params }: { params: Promise<{ id: stri
   const { polls, fetchGroupPolls, isLoading: loadingPolls } = usePollStore()
   const { user } = useAuthStore()
   const [showCreatePoll, setShowCreatePoll] = useState(false)
+  const [showCreateVote, setShowCreateVote] = useState(false)
   const [showInvite, setShowInvite] = useState(false)
   const [copied, setCopied] = useState(false)
 
@@ -134,13 +135,23 @@ export default function GroupDetailPage({ params }: { params: Promise<{ id: stri
 
           <div className="flex items-center gap-3">
             {group.myRole === "admin" && (
-              <Button
-                onClick={() => setShowCreatePoll(true)}
-                className="rounded-full h-14 px-8 bg-white text-primary hover:bg-white/90 shadow-xl border-0 font-black hover:scale-105 active:scale-95 transition-all"
-              >
-                <Plus className="mr-2 h-6 w-6" />
-                Nouveau Sondage
-              </Button>
+              <>
+                <Button
+                  onClick={() => setShowCreatePoll(true)}
+                  className="rounded-full h-14 px-8 bg-white text-primary hover:bg-white/90 shadow-xl border-0 font-black hover:scale-105 active:scale-95 transition-all"
+                >
+                  <Plus className="mr-2 h-6 w-6" />
+                  Nouveau Sondage
+                </Button>
+                <Button
+                  onClick={() => setShowCreateVote(true)}
+                  variant="outline"
+                  className="rounded-full h-14 px-8 bg-white/10 border-white/20 text-white hover:bg-white/20 backdrop-blur-md shadow-xl font-black hover:scale-105 active:scale-95 transition-all"
+                >
+                  <CheckCircle2 className="mr-2 h-6 w-6" />
+                  Nouveau Vote
+                </Button>
+              </>
             )}
             <Button
               variant="secondary"
@@ -258,14 +269,25 @@ export default function GroupDetailPage({ params }: { params: Promise<{ id: stri
                       C'est l'endroit idéal pour poser des questions et prendre des décisions collectives.
                     </p>
                     {group.myRole === "admin" && (
-                      <Button
-                        size="lg"
-                        className="rounded-full h-14 px-10 font-black shadow-xl hover:scale-105 active:scale-95 transition-all"
-                        onClick={() => setShowCreatePoll(true)}
-                      >
-                        <Plus className="mr-2 h-6 w-6" />
-                        Lancer le premier sondage
-                      </Button>
+                      <div className="flex flex-wrap justify-center gap-4">
+                        <Button
+                          size="lg"
+                          className="rounded-full h-14 px-10 font-black shadow-xl hover:scale-105 active:scale-95 transition-all"
+                          onClick={() => setShowCreatePoll(true)}
+                        >
+                          <Plus className="mr-2 h-6 w-6" />
+                          Lancer le premier sondage
+                        </Button>
+                        <Button
+                          size="lg"
+                          variant="outline"
+                          className="rounded-full h-14 px-10 font-black border-primary/20 text-primary hover:bg-primary/5 transition-all hover:scale-105 active:scale-95"
+                          onClick={() => setShowCreateVote(true)}
+                        >
+                          <CheckCircle2 className="mr-2 h-6 w-6" />
+                          Lancer le premier vote
+                        </Button>
+                      </div>
                     )}
                   </CardContent>
                 </Card>
@@ -316,7 +338,8 @@ export default function GroupDetailPage({ params }: { params: Promise<{ id: stri
         </div>
       </div>
 
-      <CreatePollModal open={showCreatePoll} onOpenChange={setShowCreatePoll} groupId={group.id} onSuccess={() => fetchGroupPolls(groupId)} />
+      <CreatePollModal mode="poll" open={showCreatePoll} onOpenChange={setShowCreatePoll} groupId={group.id} onSuccess={() => fetchGroupPolls(groupId)} />
+      <CreatePollModal mode="vote" open={showCreateVote} onOpenChange={setShowCreateVote} groupId={group.id} onSuccess={() => fetchGroupPolls(groupId)} />
       <InviteMemberModal open={showInvite} onOpenChange={setShowInvite} groupCode={groupCode} />
     </div>
   )

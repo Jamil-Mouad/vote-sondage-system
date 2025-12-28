@@ -131,7 +131,7 @@ const resendVerificationCode = async (req, res) => {
 
 const login = async (req, res) => {
   try {
-    const { email, password } = req.body;
+    const { email, password, rememberMe } = req.body;
 
     const user = await User.findByEmail(email);
     if (!user) {
@@ -143,8 +143,12 @@ const login = async (req, res) => {
       return error(res, 'Invalid credentials.', 401, 'INVALID_CREDENTIALS');
     }
 
-    const accessToken = generateAccessToken({ id: user.id, email: user.email, username: user.username, role: user.role });
-    const refreshToken = generateRefreshToken({ id: user.id, email: user.email, username: user.username, role: user.role });
+    const payload = { id: user.id, email: user.email, username: user.username, role: user.role };
+    const accessToken = generateAccessToken(payload);
+
+    // Si "Se souvenir de moi" est coché, le refresh token dure 30 jours, sinon 7 jours
+    const refreshTokenExpiration = rememberMe ? '30d' : '7d';
+    const refreshToken = generateRefreshToken(payload, refreshTokenExpiration);
 
     success(res, { userId: user.id, email: user.email, username: user.username, accessToken, refreshToken }, 'Login successful.');
   } catch (err) {

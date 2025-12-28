@@ -9,12 +9,13 @@ import { PollCardSkeleton } from "@/components/polls/poll-card-skeleton"
 import { usePollStore } from "@/store/poll-store"
 import { useAuthStore } from "@/store/auth-store"
 import { useThemeStore } from "@/store/theme-store"
-import { Plus, Search, RefreshCw, BarChart3, TrendingUp, Sparkles } from "lucide-react"
+import { Plus, Search, RefreshCw, BarChart3, TrendingUp, Sparkles, CheckCircle2 } from "lucide-react"
 import Image from "next/image"
 import { cn } from "@/lib/utils"
 
 export default function DashboardPage() {
   const [isPollModalOpen, setIsPollModalOpen] = useState(false)
+  const [isVoteModalOpen, setIsVoteModalOpen] = useState(false)
   const [searchQuery, setSearchQuery] = useState("")
 
   const { user } = useAuthStore()
@@ -69,6 +70,15 @@ export default function DashboardPage() {
               >
                 <Plus className="h-5 w-5 mr-2" />
                 Créer un sondage
+              </Button>
+              <Button
+                onClick={() => setIsVoteModalOpen(true)}
+                size="lg"
+                variant="outline"
+                className="bg-white/10 border-white/30 text-white hover:bg-white/20 font-bold rounded-full backdrop-blur-md shadow-lg hover:shadow-xl hover:scale-105 transition-all duration-300"
+              >
+                <CheckCircle2 className="h-5 w-5 mr-2" />
+                Créer un vote
               </Button>
               <Button
                 variant="outline"
@@ -139,14 +149,25 @@ export default function DashboardPage() {
             </div>
             <h3 className="text-2xl font-bold mb-3 text-foreground">Aucun sondage trouvé</h3>
             <p className="text-muted-foreground mb-8 max-w-sm mx-auto text-lg">Il semble que c'est calme par ici. Soyez le premier à lancer une discussion !</p>
-            <Button
-              onClick={() => setIsPollModalOpen(true)}
-              size="lg"
-              className="rounded-full shadow-lg shadow-primary/20 hover:shadow-primary/30 transition-all hover:scale-105"
-            >
-              <Plus className="h-5 w-5 mr-2" />
-              Lancer un sondage
-            </Button>
+            <div className="flex flex-wrap justify-center gap-4">
+              <Button
+                onClick={() => setIsPollModalOpen(true)}
+                size="lg"
+                className="rounded-full shadow-lg shadow-primary/20 hover:shadow-primary/30 transition-all hover:scale-105"
+              >
+                <Plus className="h-5 w-5 mr-2" />
+                Lancer un sondage
+              </Button>
+              <Button
+                onClick={() => setIsVoteModalOpen(true)}
+                size="lg"
+                variant="outline"
+                className="rounded-full border-primary/20 text-primary hover:bg-primary/5 transition-all hover:scale-105"
+              >
+                <CheckCircle2 className="h-5 w-5 mr-2" />
+                Lancer un vote
+              </Button>
+            </div>
           </div>
         ) : (
           <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-1 xl:grid-cols-2">
@@ -157,7 +178,8 @@ export default function DashboardPage() {
         )}
       </div>
 
-      <CreatePollModal open={isPollModalOpen} onOpenChange={setIsPollModalOpen} onSuccess={() => fetchPublicPolls({ status: "active" })} />
+      <CreatePollModal mode="poll" open={isPollModalOpen} onOpenChange={setIsPollModalOpen} onSuccess={() => fetchPublicPolls({ status: "active" })} />
+      <CreatePollModal mode="vote" open={isVoteModalOpen} onOpenChange={setIsVoteModalOpen} onSuccess={() => fetchPublicPolls({ status: "active" })} />
 
       <style jsx global>{`
         @keyframes float {

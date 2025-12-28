@@ -10,8 +10,8 @@ const generateAccessToken = (payload) => {
   return jwt.sign(payload, ACCESS_TOKEN_SECRET, { expiresIn: ACCESS_TOKEN_EXPIRATION });
 };
 
-const generateRefreshToken = (payload) => {
-  return jwt.sign(payload, REFRESH_TOKEN_SECRET, { expiresIn: REFRESH_TOKEN_EXPIRATION });
+const generateRefreshToken = (payload, expiresIn = REFRESH_TOKEN_EXPIRATION) => {
+  return jwt.sign(payload, REFRESH_TOKEN_SECRET, { expiresIn });
 };
 
 const verifyAccessToken = (token) => {

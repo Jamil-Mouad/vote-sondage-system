@@ -3,6 +3,7 @@ import type { Metadata, Viewport } from "next"
 import { Geist, Geist_Mono } from "next/font/google"
 import { Toaster } from "sonner"
 import { ThemeProvider } from "@/components/providers/theme-provider"
+import { SocketProvider } from "@/components/providers/socket-provider"
 import "./globals.css"
 
 const _geist = Geist({ subsets: ["latin"] })
@@ -50,8 +51,10 @@ export default function RootLayout({
     <html lang="fr" suppressHydrationWarning>
       <body className="font-sans antialiased">
         <ThemeProvider>
-          {children}
-          <Toaster position="top-right" richColors />
+          <SocketProvider>
+            {children}
+            <Toaster position="top-right" richColors />
+          </SocketProvider>
         </ThemeProvider>
       </body>
     </html>

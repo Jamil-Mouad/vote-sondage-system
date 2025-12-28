@@ -1,6 +1,7 @@
 "use client"
 
 import { useState, useEffect } from "react"
+import { getServerTime } from "@/lib/api-client"
 
 interface CountdownResult {
   days: number
@@ -24,7 +25,7 @@ export function useCountdown(targetDate: string | Date): CountdownResult {
   useEffect(() => {
     const calculateTimeLeft = () => {
       const target = new Date(targetDate).getTime()
-      const now = Date.now()
+      const now = getServerTime()
       const difference = target - now
 
       if (difference <= 0) {

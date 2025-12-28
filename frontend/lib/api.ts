@@ -60,11 +60,10 @@ const mockAuthApi = {
     }
 
     const newUser: User = {
-      id: users.length + 1,
+      id: (users.length + 1).toString(),
       username: pending.username,
+      name: pending.username, // Using username as name for mock
       email: pending.email,
-      role: "user",
-      createdAt: new Date().toISOString(),
     }
 
     users.push(newUser)
@@ -92,7 +91,7 @@ const mockAuthApi = {
     return { success: true }
   },
 
-  async login(data: { email: string; password: string }) {
+  async login(data: { email: string; password: string; rememberMe?: boolean }) {
     await delay(800)
 
     const user = users.find((u) => u.email === data.email)
@@ -190,6 +189,8 @@ export const pollsApi = {
       creatorName: "johndoe",
       hasVoted: false,
       isCreator: true,
+      pollType: "poll",
+      showResultsOnVote: true,
       createdAt: new Date().toISOString(),
     }
 
@@ -265,11 +266,11 @@ export const groupsApi = {
       description: data.description,
       isPublic: data.isPublic,
       membersCount: 1,
-      activePolls: 0,
+      activePollsCount: 0,
       pendingRequests: 0,
       membershipStatus: "approved",
       myRole: "admin",
-      createdBy: { id: 1, username: "johndoe" },
+      createdBy: 1,
       createdAt: new Date().toISOString(),
     }
 

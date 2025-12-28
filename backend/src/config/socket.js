@@ -27,6 +27,24 @@ const initSocketServer = (httpServer) => {
   io.on('connection', (socket) => {
     console.log(`User connected: ${socket.user.id}`);
 
+    // Join rooms for specific polls
+    socket.on('join:poll', (pollId) => {
+      console.log(`User ${socket.user.id} joined poll room: poll-${pollId}`);
+      socket.join(`poll-${pollId}`);
+    });
+
+    // Leave rooms for specific polls
+    socket.on('leave:poll', (pollId) => {
+      console.log(`User ${socket.user.id} left poll room: poll-${pollId}`);
+      socket.leave(`poll-${pollId}`);
+    });
+
+    // Join rooms for groups
+    socket.on('join:group', (groupId) => {
+      console.log(`User ${socket.user.id} joined group room: group-${groupId}`);
+      socket.join(`group-${groupId}`);
+    });
+
     socket.on('disconnect', () => {
       console.log(`User disconnected: ${socket.user.id}`);
     });

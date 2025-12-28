@@ -22,9 +22,10 @@ interface CreatePollModalProps {
   onOpenChange: (open: boolean) => void
   onSuccess?: () => void
   groupId?: number
+  mode?: "poll" | "vote"
 }
 
-export function CreatePollModal({ open, onOpenChange, onSuccess, groupId }: CreatePollModalProps) {
+export function CreatePollModal({ open, onOpenChange, onSuccess, groupId, mode = "poll" }: CreatePollModalProps) {
   const { createPoll } = usePollStore()
   const { myGroups, fetchMyGroups } = useGroupStore()
   const [isLoading, setIsLoading] = useState(false)
@@ -34,9 +35,9 @@ export function CreatePollModal({ open, onOpenChange, onSuccess, groupId }: Crea
     options: ["", ""],
     endDate: "",
     endTime: "",
-    visibility: groupId ? "private" : "public" as "public" | "private",
+    visibility: (groupId || mode === "vote") ? "private" : "public" as "public" | "private",
     selectedGroupId: groupId?.toString() || "",
-    pollType: "poll" as "poll" | "vote",
+    pollType: mode === "vote" ? "vote" : "poll" as "poll" | "vote",
     isBinary: false,
   })
 
@@ -44,11 +45,17 @@ export function CreatePollModal({ open, onOpenChange, onSuccess, groupId }: Crea
     if (open) {
       if (!groupId) {
         fetchMyGroups()
-      } else {
-        setFormData(prev => ({ ...prev, visibility: "private", selectedGroupId: groupId.toString() }))
       }
+
+      setFormData(prev => ({
+        ...prev,
+        visibility: (groupId || mode === "vote") ? "private" : "public",
+        selectedGroupId: groupId?.toString() || prev.selectedGroupId,
+        pollType: mode === "vote" ? "vote" : "poll",
+        isBinary: mode === "vote" ? false : prev.isBinary
+      }))
     }
-  }, [open, groupId])
+  }, [open, groupId, mode])
 
   // Groups where user is admin
   const adminGroups = myGroups?.created || []
@@ -121,7 +128,11 @@ export function CreatePollModal({ open, onOpenChange, onSuccess, groupId }: Crea
       } as any)
 
       if (result.success) {
-        toast.success(formData.isBinary ? "Sondage binaire créé avec succès !" : "Sondage créé avec succès !")
+        const successMessage = mode === "vote"
+          ? "Vote créé avec succès !"
+          : (formData.isBinary ? "Sondage binaire créé avec succès !" : "Sondage créé avec succès !")
+
+        toast.success(successMessage)
         onOpenChange(false)
         onSuccess?.()
 
@@ -132,9 +143,9 @@ export function CreatePollModal({ open, onOpenChange, onSuccess, groupId }: Crea
           options: ["", ""],
           endDate: "",
           endTime: "",
-          visibility: groupId ? "private" : "public",
+          visibility: (groupId || mode === "vote") ? "private" : "public",
           selectedGroupId: groupId?.toString() || "",
-          pollType: "poll",
+          pollType: mode === "vote" ? "vote" : "poll",
           isBinary: false,
         })
       } else {
@@ -156,7 +167,7 @@ export function CreatePollModal({ open, onOpenChange, onSuccess, groupId }: Crea
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2 text-primary font-bold">
             <Vote className="h-6 w-6" />
-            Créer un nouveau sondage
+            {mode === "vote" ? "Créer un nouveau vote" : "Créer un nouveau sondage"}
           </DialogTitle>
         </DialogHeader>
 
@@ -185,60 +196,36 @@ export function CreatePollModal({ open, onOpenChange, onSuccess, groupId }: Crea
             />
           </div>
 
-          <div className="space-y-2 p-4 rounded-lg border border-primary/20 bg-primary/5">
-            <Label className="text-sm font-semibold">Type de sondage</Label>
+          {mode === "poll" && (
+            <div className="space-y-2 p-4 rounded-lg border border-primary/20 bg-primary/5">
+              <Label className="text-sm font-semibold">Type de sondage</Label>
 
-            {/* Option Sondage Binaire */}
-            <div className="flex items-center gap-2">
-              <Button
-                type="button"
-                variant={formData.isBinary ? "default" : "outline"}
-                onClick={() => setFormData({
-                  ...formData,
-                  isBinary: !formData.isBinary,
-                  options: formData.isBinary ? ["", ""] : ["Oui", "Non"]
-                })}
-                className="flex-1"
-              >
-                <CheckCircle2 className="h-4 w-4 mr-2" />
-                Sondage Binaire (Oui/Non)
-              </Button>
-            </div>
-
-            {formData.isBinary && (
-              <div className="p-3 rounded-lg bg-green-50 dark:bg-green-950/20 border border-green-200 dark:border-green-900">
-                <p className="text-sm text-green-700 dark:text-green-400">
-                  ✓ Les options seront automatiquement "Oui" et "Non"
-                </p>
-              </div>
-            )}
-
-            {/* Option Vote (uniquement pour groupes privés) */}
-            {formData.visibility === "private" && formData.selectedGroupId && !formData.isBinary && (
-              <div className="pt-2">
-                <RadioGroup
-                  value={formData.pollType}
-                  onValueChange={(value: "poll" | "vote") => setFormData({ ...formData, pollType: value })}
-                  className="flex flex-col gap-2"
+              {/* Option Sondage Binaire */}
+              <div className="flex items-center gap-2">
+                <Button
+                  type="button"
+                  variant={formData.isBinary ? "default" : "outline"}
+                  onClick={() => setFormData({
+                    ...formData,
+                    isBinary: !formData.isBinary,
+                    options: formData.isBinary ? ["", ""] : ["Oui", "Non"]
+                  })}
+                  className="flex-1"
                 >
-                  <div className={`flex items-center space-x-3 p-3 rounded-lg border transition-colors ${formData.pollType === 'poll' ? 'border-primary bg-background' : 'border-border'}`}>
-                    <RadioGroupItem value="poll" id="poll" />
-                    <Label htmlFor="poll" className="font-medium cursor-pointer flex-1">
-                      Sondage standard
-                      <span className="block text-xs text-muted-foreground font-normal">Les résultats sont visibles en temps réel</span>
-                    </Label>
-                  </div>
-                  <div className={`flex items-center space-x-3 p-3 rounded-lg border transition-colors ${formData.pollType === 'vote' ? 'border-primary bg-background' : 'border-border'}`}>
-                    <RadioGroupItem value="vote" id="vote" />
-                    <Label htmlFor="vote" className="font-medium cursor-pointer flex-1">
-                      Vote (résultats masqués)
-                      <span className="block text-xs text-muted-foreground font-normal">Les résultats sont masqués jusqu'à la fin, seuls les votants peuvent les voir</span>
-                    </Label>
-                  </div>
-                </RadioGroup>
+                  <CheckCircle2 className="h-4 w-4 mr-2" />
+                  Sondage Binaire (Oui/Non)
+                </Button>
               </div>
-            )}
-          </div>
+
+              {formData.isBinary && (
+                <div className="p-3 rounded-lg bg-green-50 dark:bg-green-950/20 border border-green-200 dark:border-green-900">
+                  <p className="text-sm text-green-700 dark:text-green-400">
+                    ✓ Les options seront automatiquement "Oui" et "Non"
+                  </p>
+                </div>
+              )}
+            </div>
+          )}
 
           <div className="space-y-3">
             <Label className="text-sm font-semibold">Options de réponse *</Label>
@@ -334,29 +321,31 @@ export function CreatePollModal({ open, onOpenChange, onSuccess, groupId }: Crea
 
           {!groupId ? (
             <div className="space-y-4 pt-2">
-              <div className="space-y-2">
-                <Label className="text-sm font-semibold">Visibilité du sondage</Label>
-                <RadioGroup
-                  value={formData.visibility}
-                  onValueChange={(value: "public" | "private") => setFormData({ ...formData, visibility: value })}
-                  className="flex flex-col gap-2"
-                >
-                  <div className={`flex items-center space-x-3 p-3 rounded-lg border transition-colors ${formData.visibility === 'public' ? 'border-primary bg-primary/5' : 'border-border'}`}>
-                    <RadioGroupItem value="public" id="public" />
-                    <Label htmlFor="public" className="font-medium cursor-pointer flex-1">
-                      Public
-                      <span className="block text-xs text-muted-foreground font-normal">Visible par toute la communauté</span>
-                    </Label>
-                  </div>
-                  <div className={`flex items-center space-x-3 p-3 rounded-lg border transition-colors ${formData.visibility === 'private' ? 'border-primary bg-primary/5' : 'border-border'}`}>
-                    <RadioGroupItem value="private" id="private" />
-                    <Label htmlFor="private" className="font-medium cursor-pointer flex-1">
-                      Privé (Groupe spécifique)
-                      <span className="block text-xs text-muted-foreground font-normal">Seuls les membres du groupe peuvent voter</span>
-                    </Label>
-                  </div>
-                </RadioGroup>
-              </div>
+              {mode === "poll" && (
+                <div className="space-y-2">
+                  <Label className="text-sm font-semibold">Visibilité du sondage</Label>
+                  <RadioGroup
+                    value={formData.visibility}
+                    onValueChange={(value: "public" | "private") => setFormData({ ...formData, visibility: value })}
+                    className="flex flex-col gap-2"
+                  >
+                    <div className={`flex items-center space-x-3 p-3 rounded-lg border transition-colors ${formData.visibility === 'public' ? 'border-primary bg-primary/5' : 'border-border'}`}>
+                      <RadioGroupItem value="public" id="public" />
+                      <Label htmlFor="public" className="font-medium cursor-pointer flex-1">
+                        Public
+                        <span className="block text-xs text-muted-foreground font-normal">Visible par toute la communauté</span>
+                      </Label>
+                    </div>
+                    <div className={`flex items-center space-x-3 p-3 rounded-lg border transition-colors ${formData.visibility === 'private' ? 'border-primary bg-primary/5' : 'border-border'}`}>
+                      <RadioGroupItem value="private" id="private" />
+                      <Label htmlFor="private" className="font-medium cursor-pointer flex-1">
+                        Privé (Groupe spécifique)
+                        <span className="block text-xs text-muted-foreground font-normal">Seuls les membres du groupe peuvent voter</span>
+                      </Label>
+                    </div>
+                  </RadioGroup>
+                </div>
+              )}
 
               {formData.visibility === "private" && (
                 <div className="space-y-2 animate-in fade-in slide-in-from-top-2 duration-300">
@@ -386,7 +375,7 @@ export function CreatePollModal({ open, onOpenChange, onSuccess, groupId }: Crea
                         <AlertCircle className="h-5 w-5 text-red-500 shrink-0" />
                         <div className="space-y-1">
                           <p className="text-sm font-bold text-red-600 dark:text-red-400">Aucun groupe administré</p>
-                          <p className="text-xs text-red-500/80">Vous ne pouvez créer des sondages privés que dans les groupes que vous avez créés.</p>
+                          <p className="text-xs text-red-500/80">Vous ne pouvez créer des {mode === "vote" ? "votes" : "sondages"} privés que dans les groupes que vous avez créés.</p>
                         </div>
                       </div>
                     </div>
@@ -397,7 +386,7 @@ export function CreatePollModal({ open, onOpenChange, onSuccess, groupId }: Crea
           ) : (
             <div className="p-3 rounded-lg bg-primary/5 border border-primary/10 flex items-center gap-2 text-sm text-primary font-medium">
               <Users className="h-4 w-4" />
-              Ce sondage sera publié dans ce groupe.
+              Ce {mode === "vote" ? "vote" : "sondage"} sera publié dans ce groupe.
             </div>
           )}
 
@@ -420,7 +409,7 @@ export function CreatePollModal({ open, onOpenChange, onSuccess, groupId }: Crea
             ) : (
               <>
                 <Vote className="h-5 w-5 mr-2" />
-                Publier le sondage
+                {mode === "vote" ? "Publier le vote" : "Publier le sondage"}
               </>
             )}
           </Button>

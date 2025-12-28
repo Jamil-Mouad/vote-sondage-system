@@ -93,6 +93,7 @@ interface PollState {
   updatePoll: (id: number, data: { question?: string; description?: string; endTime?: string }) => Promise<boolean>
   cancelPoll: (id: number) => Promise<boolean>
   vote: (pollId: number, optionSelected: number) => Promise<boolean>
+  updatePollResults: (pollId: number, results: any) => void
   setLoading: (loading: boolean) => void
   setPolls: (polls: Poll[]) => void
   clearError: () => void
@@ -470,6 +471,53 @@ export const usePollStore = create<PollState>((set, get) => ({
     } catch (error: any) {
       set({ error: error.message || "Erreur réseau", isLoading: false })
     }
+  },
+
+  updatePollResults: (pollId, results) => {
+    // Determine the new total votes and mapped results
+    const totalVotes = results.totalVotes || 0;
+    const mappedResults = results.results || [];
+
+    const updatePollItem = (p: Poll) => {
+      if (p.id !== pollId) return p;
+
+      // Update options with new results
+      const updatedOptions = p.options.map(opt => {
+        const result = mappedResults.find((r: any) => (r.text || r.option) === opt.text);
+        if (result) {
+          return {
+            ...opt,
+            votes: result.votes,
+            percentage: result.percentage
+          };
+        }
+        return opt;
+      });
+
+      return {
+        ...p,
+        totalVotes,
+        results: {
+          totalVotes,
+          results: mappedResults
+        },
+        options: updatedOptions
+      };
+    };
+
+    set((state) => ({
+      polls: state.polls.map(updatePollItem),
+      myPolls: state.myPolls.map(updatePollItem),
+      currentPoll: state.currentPoll && state.currentPoll.id === pollId
+        ? updatePollItem(state.currentPoll)
+        : state.currentPoll,
+      history: {
+        activePolls: state.history.activePolls.map(updatePollItem),
+        endedPolls: state.history.endedPolls.map(updatePollItem)
+      },
+      votesHistory: state.votesHistory.map(updatePollItem),
+      pollsHistory: state.pollsHistory.map(updatePollItem)
+    }));
   },
 
   setLoading: (isLoading) => set({ isLoading }),

@@ -10,6 +10,7 @@ import { LoginRequiredModal } from "@/components/auth/login-required-modal"
 import { PollTypeBadge } from "@/components/polls/poll-type-badge"
 import { useAuthStore } from "@/store/auth-store"
 import { usePollStore, type Poll, type PollOption } from "@/store/poll-store"
+import { useSocket } from "@/components/providers/socket-provider"
 import { toast } from "sonner"
 import { useCountdown } from "@/hooks/use-countdown"
 import { cn } from "@/lib/utils"
@@ -28,10 +29,22 @@ export function PollCard({ poll, onVote }: PollCardProps) {
   const [showLoginModal, setShowLoginModal] = useState(false)
   const countdown = useCountdown(poll.endTime)
 
+  const { socket } = useSocket()
+
   // Sync state with props when poll changes (crucial for refresh/store updates)
   useEffect(() => {
     setLocalPoll(poll)
   }, [poll])
+
+  // Join poll room for real-time updates
+  useEffect(() => {
+    if (socket) {
+      socket.emit("join:poll", poll.id)
+      return () => {
+        socket.emit("leave:poll", poll.id)
+      }
+    }
+  }, [socket, poll.id])
 
   const isEnded = poll.status === "ended" || countdown.isExpired
   const isCreator = user?.id !== undefined && Number(user.id) === poll.createdBy

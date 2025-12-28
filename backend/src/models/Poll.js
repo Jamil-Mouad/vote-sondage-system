@@ -37,10 +37,10 @@ const Poll = {
 
     if (filters.status && filters.status !== 'all') {
       if (filters.status === 'active') {
-        query += ' AND p.status = ? AND p.end_time > NOW()';
+        query += ' AND p.status = ? AND p.end_time > UTC_TIMESTAMP()';
         params.push('active');
       } else if (filters.status === 'ended') {
-        query += ' AND (p.status = ? OR p.end_time <= NOW())';
+        query += ' AND (p.status = ? OR p.end_time <= UTC_TIMESTAMP())';
         params.push('ended');
       } else {
         query += ' AND p.status = ?';
@@ -70,10 +70,10 @@ const Poll = {
 
     if (filters.status && filters.status !== 'all') {
       if (filters.status === 'active') {
-        query += ' AND p.status = ? AND p.end_time > NOW()';
+        query += ' AND p.status = ? AND p.end_time > UTC_TIMESTAMP()';
         params.push('active');
       } else if (filters.status === 'ended') {
-        query += ' AND (p.status = ? OR p.end_time <= NOW())';
+        query += ' AND (p.status = ? OR p.end_time <= UTC_TIMESTAMP())';
         params.push('ended');
       } else {
         query += ' AND p.status = ?';
@@ -100,10 +100,10 @@ const Poll = {
 
     if (filters.status && filters.status !== 'all') {
       if (filters.status === 'active') {
-        query += ' AND p.status = ? AND p.end_time > NOW()';
+        query += ' AND p.status = ? AND p.end_time > UTC_TIMESTAMP()';
         params.push('active');
       } else if (filters.status === 'ended') {
-        query += ' AND (p.status = ? OR p.end_time <= NOW())';
+        query += ' AND (p.status = ? OR p.end_time <= UTC_TIMESTAMP())';
         params.push('ended');
       } else {
         query += ' AND p.status = ?';
@@ -129,10 +129,10 @@ const Poll = {
 
     if (filters.status && filters.status !== 'all') {
       if (filters.status === 'active') {
-        query += ' AND p.status = ? AND p.end_time > NOW()';
+        query += ' AND p.status = ? AND p.end_time > UTC_TIMESTAMP()';
         params.push('active');
       } else if (filters.status === 'ended') {
-        query += ' AND (p.status = ? OR p.end_time <= NOW())';
+        query += ' AND (p.status = ? OR p.end_time <= UTC_TIMESTAMP())';
         params.push('ended');
       } else {
         query += ' AND p.status = ?';
@@ -167,7 +167,7 @@ const Poll = {
   update: async (id, updates) => {
     const fields = [];
     const values = [];
-    
+
     const fieldMapping = {
       question: 'question',
       description: 'description',
@@ -209,7 +209,7 @@ const Poll = {
 
   findActivePollsEndingSoon: async () => {
     const [rows] = await pool.execute(
-      'SELECT id, question FROM polls WHERE status = ? AND end_time <= NOW()',
+      'SELECT id, question FROM polls WHERE status = ? AND end_time <= UTC_TIMESTAMP()',
       ['active']
     );
     return rows;
@@ -222,7 +222,7 @@ const Poll = {
       [userId]
     );
     const [activeCreated] = await pool.execute(
-      'SELECT COUNT(*) as count FROM polls WHERE created_by = ? AND status = ? AND end_time > NOW()',
+      'SELECT COUNT(*) as count FROM polls WHERE created_by = ? AND status = ? AND end_time > UTC_TIMESTAMP()',
       [userId, 'active']
     );
     return {

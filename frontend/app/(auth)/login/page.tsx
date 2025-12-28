@@ -1,7 +1,7 @@
 "use client"
 
 import type React from "react"
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { useRouter } from "next/navigation"
 import Link from "next/link"
 import { AuthLayout } from "@/components/auth/auth-layout"
@@ -28,6 +28,16 @@ export default function LoginPage() {
     rememberMe: false,
   })
 
+  // Charger l'email sauvegardé au montage
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      const savedEmail = localStorage.getItem("rememberedEmail")
+      if (savedEmail) {
+        setFormData((prev) => ({ ...prev, email: savedEmail, rememberMe: true }))
+      }
+    }
+  }, [])
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setIsLoading(true)
@@ -36,12 +46,20 @@ export default function LoginPage() {
       const result = await authApi.login({
         email: formData.email,
         password: formData.password,
+        rememberMe: formData.rememberMe,
       })
+
+      // Gérer la sauvegarde de l'email
+      if (formData.rememberMe) {
+        localStorage.setItem("rememberedEmail", formData.email)
+      } else {
+        localStorage.removeItem("rememberedEmail")
+      }
 
       useAuthStore.setState({
         user: {
           id: result.user.id.toString(),
-          name: result.user.username,
+          name: result.user.username || "Utilisateur",
           email: result.user.email,
         },
         token: result.accessToken,

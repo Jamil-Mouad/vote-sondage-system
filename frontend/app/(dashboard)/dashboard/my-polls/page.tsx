@@ -10,7 +10,7 @@ import { CreatePollModal } from "@/components/polls/create-poll-modal"
 import { usePollStore, type Poll } from "@/store/poll-store"
 import { useCountdown } from "@/hooks/use-countdown"
 import { cn } from "@/lib/utils"
-import { Plus, ArrowLeft, BarChart2, Clock, Users, Trash2, Edit, Trophy, Loader2, Vote } from "lucide-react"
+import { Plus, ArrowLeft, BarChart2, Clock, Users, Trash2, Edit, Trophy, Loader2, Vote, CheckCircle2 } from "lucide-react"
 import { toast } from "sonner"
 
 function PollMiniCard({ poll, onDelete }: { poll: Poll; onDelete: () => void }) {
@@ -145,6 +145,7 @@ export default function MyPollsPage() {
   const { myPolls, fetchMyPolls, isLoading } = usePollStore()
   const [filter, setFilter] = useState<"all" | "active" | "ended">("all")
   const [isModalOpen, setIsModalOpen] = useState(false)
+  const [isVoteModalOpen, setIsVoteModalOpen] = useState(false)
 
   useEffect(() => {
     fetchMyPolls()
@@ -216,14 +217,24 @@ export default function MyPollsPage() {
           </Tabs>
         </div>
 
-        <Button
-          onClick={() => setIsModalOpen(true)}
-          className="rounded-full h-12 px-8 font-black shadow-lg shadow-primary/20 hover:scale-105 transition-all"
-          style={{ background: `linear-gradient(135deg, var(--primary), var(--primary-700))` }}
-        >
-          <Plus className="h-5 w-5 mr-2" />
-          Nouveau Sondage
-        </Button>
+        <div className="flex gap-3 px-4">
+          <Button
+            onClick={() => setIsModalOpen(true)}
+            className="rounded-full h-12 px-8 font-black shadow-lg shadow-primary/20 hover:scale-105 transition-all"
+            style={{ background: `linear-gradient(135deg, var(--primary), var(--primary-700))` }}
+          >
+            <Plus className="h-5 w-5 mr-2" />
+            Nouveau Sondage
+          </Button>
+          <Button
+            onClick={() => setIsVoteModalOpen(true)}
+            variant="outline"
+            className="rounded-full h-12 px-8 font-black border-primary/20 text-primary hover:bg-primary/5 transition-all hover:scale-105"
+          >
+            <CheckCircle2 className="h-5 w-5 mr-2" />
+            Nouveau Vote
+          </Button>
+        </div>
       </div>
 
       {/* Content Grid */}
@@ -245,14 +256,24 @@ export default function MyPollsPage() {
             {filter === "all" ? "Changez les choses en posant votre première question aujourd'hui !" : "Ajustez vos filtres pour voir d'autres résultats."}
           </p>
           {filter === "all" && (
-            <Button
-              onClick={() => setIsModalOpen(true)}
-              className="rounded-full h-14 px-10 font-black shadow-xl"
-              style={{ background: `linear-gradient(135deg, var(--primary), var(--primary-700))` }}
-            >
-              <Plus className="h-6 w-6 mr-2" />
-              Lancer un sondage
-            </Button>
+            <div className="flex flex-wrap justify-center gap-4">
+              <Button
+                onClick={() => setIsModalOpen(true)}
+                className="rounded-full h-14 px-10 font-black shadow-xl transition-all hover:scale-105"
+                style={{ background: `linear-gradient(135deg, var(--primary), var(--primary-700))` }}
+              >
+                <Plus className="h-6 w-6 mr-2" />
+                Lancer un sondage
+              </Button>
+              <Button
+                onClick={() => setIsVoteModalOpen(true)}
+                variant="outline"
+                className="rounded-full h-14 px-10 font-black border-primary/20 text-primary hover:bg-primary/5 transition-all hover:scale-105"
+              >
+                <CheckCircle2 className="h-6 w-6 mr-2" />
+                Lancer un vote
+              </Button>
+            </div>
           )}
         </div>
       ) : (
@@ -263,7 +284,8 @@ export default function MyPollsPage() {
         </div>
       )}
 
-      <CreatePollModal open={isModalOpen} onOpenChange={setIsModalOpen} onSuccess={() => fetchMyPolls()} />
+      <CreatePollModal mode="poll" open={isModalOpen} onOpenChange={setIsModalOpen} onSuccess={() => fetchMyPolls()} />
+      <CreatePollModal mode="vote" open={isVoteModalOpen} onOpenChange={setIsVoteModalOpen} onSuccess={() => fetchMyPolls()} />
     </div>
   )
 }

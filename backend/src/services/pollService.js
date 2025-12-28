@@ -11,7 +11,7 @@ const calculateResults = async (pollId) => {
 
   const voteDistribution = await Vote.getVoteDistribution(pollId);
   const totalVotes = await Vote.countByPoll(pollId);
-  
+
   // Handle double-encoded JSON or already parsed options
   let options = poll.options;
   if (typeof options === 'string') {
@@ -27,7 +27,8 @@ const calculateResults = async (pollId) => {
     const votes = voteDistribution[optionId] || 0;
     const percentage = totalVotes > 0 ? (votes / totalVotes) * 100 : 0;
     return {
-      option, // Assuming options are stored as an array of strings
+      index: optionId,
+      text: option,
       votes,
       percentage: parseFloat(percentage.toFixed(2)),
     };
@@ -74,7 +75,7 @@ const getPollStats = async (pollId) => {
 
   const totalVotes = await Vote.countByPoll(pollId);
   const voteDistribution = await Vote.getVoteDistribution(pollId);
-  
+
   // Handle double-encoded JSON or already parsed options
   let options = poll.options;
   if (typeof options === 'string') {
@@ -84,7 +85,7 @@ const getPollStats = async (pollId) => {
       options = JSON.parse(options);
     }
   }
-  
+
   const votersList = await Vote.getVotersList(pollId);
   const votesOverTime = await Vote.getVotesOverTime(pollId);
 
@@ -101,8 +102,8 @@ const getPollStats = async (pollId) => {
     const votes = voteDistribution[optionId] || 0;
     const percentage = totalVotes > 0 ? (votes / totalVotes) * 100 : 0;
     return {
-      option,
-      optionIndex: optionId,
+      index: optionId,
+      text: option,
       votes,
       percentage: parseFloat(percentage.toFixed(2)),
     };

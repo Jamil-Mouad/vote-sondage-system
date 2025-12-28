@@ -3,6 +3,7 @@ const success = (res, data, message = 'Success', statusCode = 200) => {
     success: true,
     message,
     data,
+    serverTime: new Date().toISOString()
   });
 };
 

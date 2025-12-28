@@ -1,5 +1,14 @@
-// API Client pour la communication avec le backend
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000/api"
+
+// Décalage entre l'heure locale et l'heure du serveur
+let serverSkew = 0
+
+/**
+ * Retourne l'heure actuelle synchronisée avec le serveur
+ */
+export function getServerTime(): number {
+  return Date.now() + serverSkew
+}
 
 // Fonction pour récupérer le token depuis auth-storage (Zustand persist)
 function getAuthToken(): string | null {
@@ -76,6 +85,11 @@ async function apiRequest<T>(
       throw new Error(errorMessage)
     }
 
+    // Capturer le serverTime pour synchroniser les horloges
+    if (result.serverTime) {
+      serverSkew = new Date(result.serverTime).getTime() - Date.now()
+    }
+
     return {
       data: result.data,
       success: result.success ?? true,
@@ -144,7 +158,7 @@ export const realAuthApi = {
     })
   },
 
-  async login(data: { email: string; password: string }) {
+  async login(data: { email: string; password: string; rememberMe?: boolean }) {
     const result = await apiRequest<{
       userId: number
       email: string
